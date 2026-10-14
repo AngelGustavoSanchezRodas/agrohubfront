@@ -1,4 +1,6 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+// Esta variable se lee del .env local de Next.js
+const API_KEY = process.env.NEXT_PUBLIC_AGROHUB_API_KEY;
 
 export interface DatosTelemetriaHistorica {
   id?: number | string;
@@ -16,37 +18,20 @@ interface RespuestaHistorial {
 }
 
 export const alternarBombaAgua = async (encender: boolean): Promise<Record<string, unknown>> => {
-  // Se recupera el token de la sesion actual del usuario
-  const token = typeof window !== "undefined" ? localStorage.getItem("agrohub_jwt") : null;
+  const respuesta = await fetch(`${API_URL}/api/control/bomba`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-Key": (API_KEY as string) || "",
+    },
+    body: JSON.stringify({ estado: encender }),
+  });
 
-  if (!token) {
-    throw new Error("No hay sesion activa. Acceso denegado.");
+  if (!respuesta.ok) {
+    throw new Error("No autorizado o error de servidor");
   }
 
-  try {
-    const respuesta = await fetch(`${API_URL}/api/control/bomba`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        // Inyeccion del JWT en la cabecera HTTP
-        "Authorization": `Bearer ${token}`,
-      },
-      body: JSON.stringify({ estado: encender }),
-    });
-
-    if (respuesta.status === 401) {
-      throw new Error("Token expirado o invalido. Por favor, inicie sesion nuevamente.");
-    }
-
-    if (!respuesta.ok) {
-      throw new Error("Error en la comunicacion con el servidor");
-    }
-
-    return (await respuesta.json()) as Record<string, unknown>;
-  } catch (error) {
-    console.error("Error de seguridad ejecutando comando:", error);
-    throw error;
-  }
+  return (await respuesta.json()) as Record<string, unknown>;
 };
 
 export const obtenerDatosGrafica = async (limite?: number): Promise<DatosTelemetriaHistorica[]> => {
