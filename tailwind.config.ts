@@ -9,15 +9,14 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "#000000", // Fondo completamente negro como en el logo
-        foreground: "#ffffff",
         agro: {
-          orange: "#F58220", // El naranja exacto de la caja "Hub"
-          green: "#70C243",  // El verde brillante de las hojas
-          dark: "#121212",   // Un gris súper oscuro para el fondo de las tarjetas
-          border: "#2A2A2A"  // Un gris sutil para separar elementos
+          dark: "#0f172a", // slate-900
+          darker: "#020617", // slate-950
+          border: "#1e293b", // slate-800
+          green: "#10b981", // emerald-500
+          orange: "#f59e0b", // amber-500
         }
-      },
+      }
     },
   },
   plugins: [],

@@ -1,0 +1,40 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { LayoutDashboard, LineChart, Cpu, Bell } from "lucide-react";
+
+export function MobileNav() {
+  const rutaActual = usePathname();
+
+  const enlaces = [
+    { nombre: "Dashboard", ruta: "/", icono: LayoutDashboard },
+    { nombre: "Analítica", ruta: "/analitica", icono: LineChart },
+    { nombre: "Dispositivos", ruta: "/dispositivos", icono: Cpu },
+    { nombre: "Alertas", ruta: "/alertas", icono: Bell },
+  ];
+
+  return (
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-agro-dark border-t border-agro-border px-2 py-2 flex items-center justify-around">
+      {enlaces.map((item) => {
+        const esActivo = rutaActual === item.ruta;
+        const Icono = item.icono;
+
+        return (
+          <Link
+            key={item.ruta}
+            href={item.ruta}
+            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-lg text-xs transition-colors ${
+              esActivo
+                ? "text-agro-orange font-semibold"
+                : "text-gray-400 hover:text-white"
+            }`}
+          >
+            <Icono className="w-5 h-5" />
+            <span>{item.nombre}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}

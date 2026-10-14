@@ -8,6 +8,7 @@ export interface DatosTelemetriaHistorica {
   humedad_ambiente: number;
   humedad_suelo: number;
   creado_en: string;
+  tiempo?: string;
   [key: string]: unknown;
 }
 
