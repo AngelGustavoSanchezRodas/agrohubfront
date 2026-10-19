@@ -16,7 +16,7 @@ export interface DispositivoConsolidado {
   temperatura?: number | string;
   humedadAmbiente?: number | string;
   humedadSuelo?: number | string;
-  origen: "Supabase" | "Firebase" | "Híbrido";
+  origen?: string;
 }
 
 export interface NodoFirebase {

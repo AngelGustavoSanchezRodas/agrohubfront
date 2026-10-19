@@ -1,4 +1,4 @@
-import { Radio } from "lucide-react";
+import { Activity } from "lucide-react";
 
 interface MetricasDispositivosProps {
   totalDispositivos: number;
@@ -11,33 +11,36 @@ export function MetricasDispositivos({
   totalOnline,
   totalOffline,
 }: MetricasDispositivosProps) {
+  const disponibilidad =
+    totalDispositivos > 0 ? Math.round((totalOnline / totalDispositivos) * 100) : 0;
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
       <div className="bg-agro-dark border border-agro-border rounded-xl p-5">
-        <span className="text-xs font-medium uppercase text-gray-400">Total Nodos</span>
+        <span className="text-xs font-medium uppercase text-gray-400">Total Estaciones</span>
         <div className="mt-2 text-3xl font-extrabold text-white">{totalDispositivos}</div>
-        <span className="text-[11px] text-gray-500 mt-1 block">Detectados en la infraestructura</span>
+        <span className="text-[11px] text-gray-500 mt-1 block">Estaciones instaladas en campo</span>
       </div>
 
       <div className="bg-agro-dark border border-agro-border rounded-xl p-5">
-        <span className="text-xs font-medium uppercase text-gray-400">En Línea</span>
+        <span className="text-xs font-medium uppercase text-gray-400">Operativas</span>
         <div className="mt-2 text-3xl font-extrabold text-agro-green">{totalOnline}</div>
-        <span className="text-[11px] text-gray-500 mt-1 block">Con pulsos de telemetría activos</span>
+        <span className="text-[11px] text-gray-500 mt-1 block">Transmitiendo en vivo</span>
       </div>
 
       <div className="bg-agro-dark border border-agro-border rounded-xl p-5">
-        <span className="text-xs font-medium uppercase text-gray-400">Desconectados</span>
+        <span className="text-xs font-medium uppercase text-gray-400">Sin Señal</span>
         <div className="mt-2 text-3xl font-extrabold text-red-500">{totalOffline}</div>
-        <span className="text-[11px] text-gray-500 mt-1 block">Sin reporte en ventana nominal</span>
+        <span className="text-[11px] text-gray-500 mt-1 block">En espera de sincronización</span>
       </div>
 
       <div className="bg-agro-dark border border-agro-border rounded-xl p-5">
-        <span className="text-xs font-medium uppercase text-gray-400">Fuentes Activas</span>
-        <div className="mt-2 text-2xl font-bold text-blue-400 flex items-center gap-2">
-          <Radio className="w-5 h-5 text-agro-green" />
-          <span>RTDB + PostgreSQL</span>
+        <span className="text-xs font-medium uppercase text-gray-400">Disponibilidad</span>
+        <div className="mt-2 text-3xl font-extrabold text-blue-400 flex items-center gap-2">
+          <span>{disponibilidad}%</span>
+          <Activity className="w-5 h-5 text-agro-green" />
         </div>
-        <span className="text-[11px] text-gray-500 mt-1 block">Sincronización bidireccional</span>
+        <span className="text-[11px] text-gray-500 mt-1 block">Cobertura de red del cultivo</span>
       </div>
     </div>
   );

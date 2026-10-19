@@ -18,12 +18,12 @@ export default function Analitica() {
   const [error, setError] = useState<string | null>(null);
   const [rango, setRango] = useState<"24h" | "7d">("24h");
   const [limite, setLimite] = useState<number>(24);
-  const [dispositivoId, setDispositivoId] = useState<string>("invernadero_prueba_01");
+  const [dispositivoId] = useState<string>("invernadero_prueba_01");
 
-  const consultarHistorial = (cantidad: number, id: string = dispositivoId) => {
+  const consultarHistorial = (cantidad: number) => {
     setCargando(true);
     setError(null);
-    obtenerDatosGrafica(cantidad, id)
+    obtenerDatosGrafica(cantidad, dispositivoId)
       .then((respuesta) => {
         setDatos(Array.isArray(respuesta) && respuesta.length > 0 ? [...respuesta].reverse() : []);
         setCargando(false);
@@ -31,7 +31,7 @@ export default function Analitica() {
       .catch((err) => {
         setDatos([]);
         setError(
-          err instanceof Error ? err.message : "No se pudo recuperar el historial de telemetría."
+          err instanceof Error ? err.message : "No se pudo recuperar el historial de lecturas."
         );
         setCargando(false);
       });
@@ -112,21 +112,19 @@ export default function Analitica() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      {/* Cabecera y controles de filtro */}
+      {/* Cabecera y controles de filtro temporal */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-white flex items-center gap-2">
             <LineChart className="w-6 h-6 text-agro-green" />
-            Análisis Histórico
+            Análisis Histórico del Cultivo
           </h2>
           <p className="text-gray-400 text-sm mt-1">
-            Tendencias de telemetría extraídas de PostgreSQL (Supabase) o Firebase Realtime.
+            Evolución temporal de variables climáticas y niveles de humedad en suelo.
           </p>
         </div>
 
         <FiltrosToolbar
-          dispositivoId={dispositivoId}
-          setDispositivoId={setDispositivoId}
           rango={rango}
           setRango={setRango}
           limite={limite}
@@ -148,13 +146,12 @@ export default function Analitica() {
       <MetricasCards
         metricas={metricas}
         totalMuestras={datos.length}
-        origenDato={datos[0]?.origen_dato}
       />
 
-      {/* Grafico de Area Recharts */}
+      {/* Gráfico de Área Recharts */}
       <GraficaTendencia datosGrafica={datosGrafica} cargando={cargando} />
 
-      {/* Tabla de registros relacionales */}
+      {/* Tabla cronológica de lecturas */}
       <TablaTelemetria datos={datos} cargando={cargando} />
     </div>
   );

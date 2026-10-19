@@ -40,10 +40,10 @@ export function GraficaReciente({ historial, cargando }: GraficaRecienteProps) {
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold text-white uppercase tracking-wide flex items-center gap-2">
           <LineChartIcon className="w-4 h-4 text-agro-green" />
-          Tendencia Reciente (Supabase / Firebase)
+          Tendencia de las Últimas Horas
         </h3>
         <span className="text-xs text-gray-500 font-mono">
-          {historial.length} lecturas disponibles
+          {historial.length} lecturas
         </span>
       </div>
 
@@ -51,14 +51,14 @@ export function GraficaReciente({ historial, cargando }: GraficaRecienteProps) {
         {cargando ? (
           <div className="flex items-center gap-2 text-gray-400 text-xs">
             <RefreshCw className="w-4 h-4 animate-spin text-agro-green" />
-            <span>Consultando historial reciente...</span>
+            <span>Consultando lecturas recientes...</span>
           </div>
         ) : historial.length === 0 ? (
           <div className="flex flex-col items-center justify-center text-center p-6 border border-dashed border-gray-800 rounded-lg text-gray-500 max-w-md">
             <LineChartIcon className="w-8 h-8 opacity-25 text-agro-green mb-2" />
-            <p className="text-xs font-medium text-gray-400">Sin historial en base de datos</p>
+            <p className="text-xs font-medium text-gray-400">Sin lecturas recientes suficientes</p>
             <p className="text-[11px] text-gray-500 mt-1">
-              La curva de tendencia se generará automáticamente en cuanto el backend o Firebase reciban las primeras lecturas.
+              La curva de evolución se trazará automáticamente al recibir las primeras mediciones del cultivo.
             </p>
           </div>
         ) : (

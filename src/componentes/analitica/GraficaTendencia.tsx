@@ -50,16 +50,16 @@ export function GraficaTendencia({ datosGrafica, cargando }: GraficaTendenciaPro
         {cargando ? (
           <div className="flex flex-col items-center justify-center text-gray-400 gap-3">
             <RefreshCw className="w-8 h-8 animate-spin text-agro-green" />
-            <p className="text-xs">Recuperando registros de Supabase o Firebase...</p>
+            <p className="text-xs">Recuperando registros históricos del cultivo...</p>
           </div>
         ) : datosGrafica.length === 0 ? (
           <div className="flex flex-col items-center justify-center text-center p-8 max-w-md border border-dashed border-agro-border rounded-xl text-gray-500">
             <LineChart className="w-12 h-12 mb-3 opacity-20 text-agro-green" />
             <p className="text-sm font-medium text-gray-300">
-              No hay datos de telemetría registrados aún
+              No hay lecturas registradas en este período
             </p>
             <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
-              Cuando el microcontrolador ESP32 transmita paquetes hacia el backend o Firebase, las tendencias se dibujarán automáticamente aquí.
+              Las curvas de evolución agronómica se generarán automáticamente conforme se acumulen lecturas en la estación de monitoreo.
             </p>
           </div>
         ) : (

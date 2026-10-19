@@ -10,8 +10,8 @@ export function MobileNav() {
   const enlaces = [
     { nombre: "Dashboard", ruta: "/", icono: LayoutDashboard },
     { nombre: "Analítica", ruta: "/analitica", icono: LineChart },
-    { nombre: "Dispositivos", ruta: "/dispositivos", icono: Cpu },
-    { nombre: "Alertas", ruta: "/alertas", icono: Bell },
+    { nombre: "Estaciones", ruta: "/dispositivos", icono: Cpu },
+    { nombre: "Diagnósticos", ruta: "/alertas", icono: Bell },
   ];
 
   return (

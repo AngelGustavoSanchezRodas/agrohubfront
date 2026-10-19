@@ -198,35 +198,16 @@ export const obtenerDispositivos = async (): Promise<DispositivoBackend[]> => {
       const val = snap.val() as Record<string, Record<string, unknown>>;
       return Object.keys(val).map((id) => ({
         id_dispositivo: id,
-        nombre: `Nodo ${id}`,
-        ubicacion: "Invernadero",
+        nombre: "Estación de Cultivo",
+        ubicacion: "Invernadero Principal",
         estado_conexion: "ONLINE",
       }));
     }
   } catch {
-    // Error en lectura de Firebase
+    // Error en lectura de telemetría
   }
 
   return [];
-};
-
-export const registrarDispositivo = async (datos: {
-  id_dispositivo: string;
-  nombre: string;
-  ubicacion?: string;
-}): Promise<DispositivoBackend> => {
-  const respuesta = await ejecutarFetchSeguro("/api/dispositivos", {
-    method: "POST",
-    body: JSON.stringify(datos),
-  });
-
-  if (!respuesta.ok) {
-    const errorData = await respuesta.json().catch(() => null);
-    const mensaje = typeof errorData?.detail === "string" ? errorData.detail : "Error al registrar dispositivo";
-    throw new Error(mensaje);
-  }
-
-  return (await respuesta.json()) as DispositivoBackend;
 };
 
 export const obtenerDiagnosticoIA = async (
@@ -239,7 +220,7 @@ export const obtenerDiagnosticoIA = async (
       return json.diagnostico;
     }
   } catch {
-    // Fallback a Firebase si el backend falla
+    // Continuar a lectura de contingencia
   }
 
   try {
@@ -254,8 +235,8 @@ export const obtenerDiagnosticoIA = async (
       };
     }
   } catch {
-    // Error en lectura de Firebase
+    // Error en lectura de contingencia
   }
 
-  throw new Error("No se pudo obtener el diagnóstico del backend ni de la base de datos de Firebase.");
+  throw new Error("No se pudo obtener el diagnóstico del servicio agronómico inteligente.");
 };

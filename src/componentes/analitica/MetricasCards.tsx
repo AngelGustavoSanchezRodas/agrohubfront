@@ -4,10 +4,9 @@ import { MetricasResumen } from "@/types";
 interface MetricasCardsProps {
   metricas: MetricasResumen;
   totalMuestras: number;
-  origenDato?: string;
 }
 
-export function MetricasCards({ metricas, totalMuestras, origenDato }: MetricasCardsProps) {
+export function MetricasCards({ metricas, totalMuestras }: MetricasCardsProps) {
   const tieneDatos = totalMuestras > 0;
 
   return (
@@ -65,10 +64,10 @@ export function MetricasCards({ metricas, totalMuestras, origenDato }: MetricasC
         </span>
       </div>
 
-      {/* Tarjeta 4: Puntos Analizados y Origen */}
+      {/* Tarjeta 4: Lecturas Evaluadas */}
       <div className="bg-agro-dark border border-agro-border rounded-xl p-5 flex flex-col justify-between">
         <div className="flex items-center justify-between text-gray-400 text-xs uppercase font-medium">
-          <span>Puntos Analizados</span>
+          <span>Lecturas Evaluadas</span>
           <Layers className="w-5 h-5 text-purple-400" />
         </div>
         <div className="mt-3 flex items-baseline gap-2">
@@ -79,8 +78,8 @@ export function MetricasCards({ metricas, totalMuestras, origenDato }: MetricasC
         </div>
         <span className="text-[11px] text-gray-500 mt-2">
           {tieneDatos
-            ? `Origen: ${origenDato || "Supabase / Firebase"}`
-            : "Esperando lecturas de Supabase o Firebase"}
+            ? "Ventana temporal activa del cultivo"
+            : "Esperando nuevas lecturas de sensores"}
         </span>
       </div>
     </div>

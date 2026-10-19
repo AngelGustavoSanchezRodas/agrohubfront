@@ -8,8 +8,6 @@ import {
   LineChart,
   Cpu,
   Bell,
-  Activity,
-  Layers,
   Sprout,
 } from "lucide-react";
 import { verificarEstadoBackend } from "@/services/api";
@@ -26,35 +24,35 @@ const elementosNavegacion: ElementoNavegacion[] = [
     nombre: "Dashboard",
     ruta: "/",
     icono: LayoutDashboard,
-    descripcion: "Telemetría en tiempo real",
+    descripcion: "Lecturas en tiempo real",
   },
   {
     nombre: "Analítica",
     ruta: "/analitica",
     icono: LineChart,
-    descripcion: "Historial de Supabase",
+    descripcion: "Historial y tendencias",
   },
   {
-    nombre: "Dispositivos",
+    nombre: "Estaciones",
     ruta: "/dispositivos",
     icono: Cpu,
-    descripcion: "Inventario de ESP32",
+    descripcion: "Monitoreo en campo",
   },
   {
-    nombre: "Alertas IA",
+    nombre: "Diagnósticos IA",
     ruta: "/alertas",
     icono: Bell,
-    descripcion: "Diagnósticos predictivos",
+    descripcion: "Asistente agronómico",
   },
 ];
 
 export function Sidebar() {
   const rutaActual = usePathname();
-  const [backendOnline, setBackendOnline] = useState<boolean>(true);
+  const [sistemaOperativo, setSistemaOperativo] = useState<boolean>(true);
 
   useEffect(() => {
     verificarEstadoBackend().then((res) => {
-      setBackendOnline(res.status === "ok");
+      setSistemaOperativo(res.status === "ok");
     });
   }, []);
 
@@ -106,32 +104,29 @@ export function Sidebar() {
           </nav>
         </div>
 
-        {/* Estado de Conectividad de Servicios */}
+        {/* Estado Operativo General */}
         <div className="border-t border-agro-border pt-4 px-3">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 px-3">
-            Estado de Conexión
+            Estado del Sistema
           </span>
-          <div className="mt-2 bg-black/60 border border-agro-border rounded-xl p-3 space-y-2 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-gray-400 flex items-center gap-1.5">
-                <Activity className="w-3.5 h-3.5 text-agro-green" />
-                Firebase Realtime
-              </span>
-              <span className="text-agro-green font-semibold">Activo</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-400 flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-blue-400" />
-                FastAPI / Supabase
-              </span>
+          <div className="mt-2 bg-black/50 border border-agro-border rounded-xl p-3 flex items-center justify-between text-xs">
+            <span className="text-gray-400 flex items-center gap-2">
               <span
-                className={`font-semibold ${
-                  backendOnline ? "text-agro-green" : "text-amber-400"
+                className={`w-2 h-2 rounded-full ${
+                  sistemaOperativo
+                    ? "bg-agro-green shadow-[0_0_8px_rgba(16,185,129,0.8)]"
+                    : "bg-amber-400"
                 }`}
-              >
-                {backendOnline ? "En línea" : "Desconectado"}
-              </span>
-            </div>
+              ></span>
+              Plataforma
+            </span>
+            <span
+              className={`font-semibold ${
+                sistemaOperativo ? "text-agro-green" : "text-amber-400"
+              }`}
+            >
+              {sistemaOperativo ? "Operativa" : "Intermitente"}
+            </span>
           </div>
         </div>
       </div>
