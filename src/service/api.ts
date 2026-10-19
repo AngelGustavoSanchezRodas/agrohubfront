@@ -1,6 +1,5 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
-// Esta variable se lee del .env local de Next.js
-const API_KEY = process.env.NEXT_PUBLIC_AGROHUB_API_KEY;
+import { ref, get } from "firebase/database";
+import { db } from "@/lib/firebase";
 
 export interface DatosTelemetriaHistorica {
   id?: number | string;
@@ -9,22 +8,88 @@ export interface DatosTelemetriaHistorica {
   humedad_suelo: number;
   creado_en: string;
   tiempo?: string;
+  id_dispositivo?: string;
+  luz_uv?: number;
+  indice_calor?: number;
+  voltaje_bateria?: number;
+  origen_dato?: "Supabase PostgreSQL" | "Firebase Realtime";
   [key: string]: unknown;
 }
 
 interface RespuestaHistorial {
-  status: string;
-  total: number;
-  datos: DatosTelemetriaHistorica[];
+  status?: string;
+  total?: number;
+  total_registros?: number;
+  dispositivo?: string;
+  datos?: DatosTelemetriaHistorica[];
 }
 
+export interface DispositivoBackend {
+  id_dispositivo: string;
+  nombre: string;
+  ubicacion?: string | null;
+  fecha_instalacion?: string | null;
+  estado_conexion?: string;
+  [key: string]: unknown;
+}
+
+export interface DiagnosticoIA {
+  estado_general: "OPTIMO" | "ADVERTENCIA" | "CRITICO" | "DESCONOCIDO";
+  riesgo_detectado: string;
+  recomendacion_tecnica: string;
+}
+
+interface RespuestaDiagnosticoBackend {
+  status: string;
+  dispositivo: string;
+  diagnostico: DiagnosticoIA;
+}
+
+const getBaseUrl = (): string => {
+  return (process.env.NEXT_PUBLIC_API_URL?.trim() || "http://127.0.0.1:8000").replace(/\/$/, "");
+};
+
+const getHeaders = (): Record<string, string> => {
+  const apiKey = process.env.NEXT_PUBLIC_AGROHUB_API_KEY?.trim() || "";
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (apiKey) {
+    headers["X-API-Key"] = apiKey;
+  }
+  return headers;
+};
+
+const ejecutarFetchSeguro = async (ruta: string, opciones?: RequestInit): Promise<Response> => {
+  const baseUrl = getBaseUrl();
+  const defaultHeaders = getHeaders();
+  const headers = { ...defaultHeaders, ...(opciones?.headers as Record<string, string> | undefined) };
+
+  try {
+    const res = await fetch(`${baseUrl}${ruta}`, { ...opciones, headers });
+    if (res.ok || (res.status !== 404 && res.status !== 502 && res.status !== 503)) {
+      return res;
+    }
+  } catch {
+    // Si falla la conexion remota, intentar con el host local
+  }
+
+  return fetch(`http://127.0.0.1:8000${ruta}`, { ...opciones, headers });
+};
+
+export const verificarEstadoBackend = async (): Promise<{ status: string; version?: string }> => {
+  try {
+    const respuesta = await ejecutarFetchSeguro("/");
+    if (!respuesta.ok) return { status: "desconectado" };
+    return (await respuesta.json()) as { status: string; version?: string };
+  } catch {
+    return { status: "desconectado" };
+  }
+};
+
 export const alternarBombaAgua = async (encender: boolean): Promise<Record<string, unknown>> => {
-  const respuesta = await fetch(`${API_URL}/api/control/bomba`, {
+  const respuesta = await ejecutarFetchSeguro("/api/control/bomba", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-API-Key": (API_KEY as string) || "",
-    },
     body: JSON.stringify({ estado: encender }),
   });
 
@@ -35,19 +100,198 @@ export const alternarBombaAgua = async (encender: boolean): Promise<Record<strin
   return (await respuesta.json()) as Record<string, unknown>;
 };
 
-export const obtenerDatosGrafica = async (limite?: number): Promise<DatosTelemetriaHistorica[]> => {
+// Recuperacion directa de telemetria desde Firebase RTDB como respaldo o fuente en tiempo real
+export const obtenerHistorialDesdeFirebase = async (
+  dispositivoId: string = "invernadero_prueba_01"
+): Promise<DatosTelemetriaHistorica[]> => {
   try {
-    const url = limite ? `${API_URL}/api/historial?limite=${limite}` : `${API_URL}/api/historial`;
-    const respuesta = await fetch(url);
-
-    if (!respuesta.ok) {
-      throw new Error("Error al obtener el historial de telemetria");
+    const nodoRef = ref(db, `invernadero/${dispositivoId}`);
+    const snapshot = await get(nodoRef);
+    if (!snapshot.exists()) {
+      return [];
     }
 
-    const json = (await respuesta.json()) as RespuestaHistorial;
-    return json.datos;
-  } catch (error) {
-    console.error("Error consultando historial:", error);
-    throw error;
+    const val = snapshot.val() as Record<string, unknown>;
+    const registros: DatosTelemetriaHistorica[] = [];
+
+    // 1. Revisar buffer de telemetria acumulada
+    if (val.buffer_telemetria && typeof val.buffer_telemetria === "object") {
+      const buffer = val.buffer_telemetria as Record<string, Record<string, unknown>>;
+      for (const [key, item] of Object.entries(buffer)) {
+        if (item && typeof item === "object") {
+          registros.push({
+            id: key,
+            id_dispositivo: String(item.id_dispositivo || dispositivoId),
+            temperatura: Number(item.temperatura) || 0,
+            humedad_ambiente: Number(item.humedad_ambiente) || 0,
+            humedad_suelo: Number(item.humedad_suelo) || 0,
+            luz_uv: item.luz_uv !== undefined ? Number(item.luz_uv) : undefined,
+            indice_calor: item.indice_calor !== undefined ? Number(item.indice_calor) : undefined,
+            voltaje_bateria: item.voltaje_bateria !== undefined ? Number(item.voltaje_bateria) : undefined,
+            creado_en: String(item.timestamp || new Date().toISOString()),
+            origen_dato: "Firebase Realtime",
+          });
+        }
+      }
+    }
+
+    // 2. Revisar historial explicito si fue almacenado en Firebase
+    if (val.historial && typeof val.historial === "object") {
+      const hist = val.historial as Record<string, Record<string, unknown>>;
+      for (const [key, item] of Object.entries(hist)) {
+        if (item && typeof item === "object") {
+          registros.push({
+            id: key,
+            id_dispositivo: String(item.id_dispositivo || dispositivoId),
+            temperatura: Number(item.temperatura) || 0,
+            humedad_ambiente: Number(item.humedad_ambiente) || 0,
+            humedad_suelo: Number(item.humedad_suelo) || 0,
+            luz_uv: item.luz_uv !== undefined ? Number(item.luz_uv) : undefined,
+            indice_calor: item.indice_calor !== undefined ? Number(item.indice_calor) : undefined,
+            voltaje_bateria: item.voltaje_bateria !== undefined ? Number(item.voltaje_bateria) : undefined,
+            creado_en: String(item.timestamp || new Date().toISOString()),
+            origen_dato: "Firebase Realtime",
+          });
+        }
+      }
+    }
+
+    // 3. Incluir estado actual para garantizar la medicion mas reciente
+    if (val.estado_actual && typeof val.estado_actual === "object") {
+      const actual = val.estado_actual as Record<string, unknown>;
+      const tsActual = String(actual.timestamp || "");
+      const yaExiste = registros.some((r) => r.creado_en === tsActual);
+      if (!yaExiste && actual.temperatura !== undefined) {
+        registros.push({
+          id: `live-${dispositivoId}`,
+          id_dispositivo: String(actual.id_dispositivo || dispositivoId),
+          temperatura: Number(actual.temperatura) || 0,
+          humedad_ambiente: Number(actual.humedad_ambiente) || 0,
+          humedad_suelo: Number(actual.humedad_suelo) || 0,
+          luz_uv: actual.luz_uv !== undefined ? Number(actual.luz_uv) : undefined,
+          indice_calor: actual.indice_calor !== undefined ? Number(actual.indice_calor) : undefined,
+          voltaje_bateria: actual.voltaje_bateria !== undefined ? Number(actual.voltaje_bateria) : undefined,
+          creado_en: tsActual || new Date().toISOString(),
+          origen_dato: "Firebase Realtime",
+        });
+      }
+    }
+
+    // Orden cronologico ascendente
+    registros.sort((a, b) => new Date(a.creado_en).getTime() - new Date(b.creado_en).getTime());
+    return registros;
+  } catch {
+    return [];
   }
+};
+
+// Recuperacion hibrida: intenta primero el backend FastAPI/Supabase y conmuta a Firebase RTDB si no hay datos o falla la conexion
+export const obtenerDatosGrafica = async (
+  limite?: number,
+  dispositivoId: string = "invernadero_prueba_01"
+): Promise<DatosTelemetriaHistorica[]> => {
+  const ruta = `/api/telemetria/historial/${dispositivoId}${limite ? `?limite=${limite}` : ""}`;
+
+  try {
+    const respuesta = await ejecutarFetchSeguro(ruta);
+    if (respuesta.ok) {
+      const json = (await respuesta.json()) as RespuestaHistorial;
+      const datosBackend = Array.isArray(json.datos) ? json.datos : [];
+      if (datosBackend.length > 0) {
+        return datosBackend.map((d) => ({
+          ...d,
+          origen_dato: "Supabase PostgreSQL",
+        }));
+      }
+    }
+  } catch {
+    // Si el backend no responde, recuperar de Firebase RTDB
+  }
+
+  // Si Supabase devuelve 0 registros o falla el backend, leer de Firebase RTDB
+  const datosFirebase = await obtenerHistorialDesdeFirebase(dispositivoId);
+  return limite ? datosFirebase.slice(-limite) : datosFirebase;
+};
+
+export const obtenerDispositivos = async (): Promise<DispositivoBackend[]> => {
+  try {
+    const respuesta = await ejecutarFetchSeguro("/api/dispositivos");
+    if (respuesta.ok) {
+      const data = (await respuesta.json()) as DispositivoBackend[];
+      if (Array.isArray(data) && data.length > 0) {
+        return data;
+      }
+    }
+  } catch {
+    // Fallback a Firebase
+  }
+
+  // Leer nodos de Firebase RTDB si el backend no tiene catalogo
+  try {
+    const invRef = ref(db, "invernadero");
+    const snap = await get(invRef);
+    if (snap.exists()) {
+      const val = snap.val() as Record<string, Record<string, unknown>>;
+      return Object.keys(val).map((id) => ({
+        id_dispositivo: id,
+        nombre: `Nodo ${id}`,
+        ubicacion: "Invernadero",
+        estado_conexion: "ONLINE",
+      }));
+    }
+  } catch {
+    // Error en lectura
+  }
+
+  return [];
+};
+
+export const registrarDispositivo = async (datos: {
+  id_dispositivo: string;
+  nombre: string;
+  ubicacion?: string;
+}): Promise<DispositivoBackend> => {
+  const respuesta = await ejecutarFetchSeguro("/api/dispositivos", {
+    method: "POST",
+    body: JSON.stringify(datos),
+  });
+
+  if (!respuesta.ok) {
+    const errorData = await respuesta.json().catch(() => null);
+    const mensaje = typeof errorData?.detail === "string" ? errorData.detail : "Error al registrar dispositivo";
+    throw new Error(mensaje);
+  }
+
+  return (await respuesta.json()) as DispositivoBackend;
+};
+
+export const obtenerDiagnosticoIA = async (
+  dispositivoId: string = "invernadero_prueba_01"
+): Promise<DiagnosticoIA> => {
+  try {
+    const respuesta = await ejecutarFetchSeguro(`/api/ia/diagnostico/${dispositivoId}`);
+    if (respuesta.ok) {
+      const json = (await respuesta.json()) as RespuestaDiagnosticoBackend;
+      return json.diagnostico;
+    }
+  } catch {
+    // Fallback a Firebase si el backend falla
+  }
+
+  try {
+    const diagRef = ref(db, `invernadero/${dispositivoId}/ultimo_diagnostico_ia`);
+    const snap = await get(diagRef);
+    if (snap.exists()) {
+      const val = snap.val() as Record<string, unknown>;
+      return {
+        estado_general: (val.estado_general as DiagnosticoIA["estado_general"]) || "DESCONOCIDO",
+        riesgo_detectado: String(val.riesgo_detectado || "Sin anomalía reportada"),
+        recomendacion_tecnica: String(val.recomendacion_tecnica || "Mantener monitoreo continuo."),
+      };
+    }
+  } catch {
+    // Error en lectura de Firebase
+  }
+
+  throw new Error("No se pudo obtener el diagnóstico del backend ni de la base de datos de Firebase.");
 };

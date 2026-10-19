@@ -18,44 +18,38 @@ import {
   Droplets,
   Leaf,
   Layers,
+  AlertCircle,
 } from "lucide-react";
 import { obtenerDatosGrafica, DatosTelemetriaHistorica } from "@/services/api";
 
-// Datos de prueba (fallback en caso de que el backend local aun no tenga registros)
-const mockData: DatosTelemetriaHistorica[] = [
-  { tiempo: "08:00", temperatura: 22, humedad_ambiente: 65, humedad_suelo: 58, creado_en: "2026-10-14T08:00:00Z", id_dispositivo: "invernadero_prueba_01" },
-  { tiempo: "09:00", temperatura: 24, humedad_ambiente: 62, humedad_suelo: 56, creado_en: "2026-10-14T09:00:00Z", id_dispositivo: "invernadero_prueba_01" },
-  { tiempo: "10:00", temperatura: 26, humedad_ambiente: 58, humedad_suelo: 54, creado_en: "2026-10-14T10:00:00Z", id_dispositivo: "invernadero_prueba_01" },
-  { tiempo: "11:00", temperatura: 28, humedad_ambiente: 55, humedad_suelo: 52, creado_en: "2026-10-14T11:00:00Z", id_dispositivo: "invernadero_prueba_01" },
-  { tiempo: "12:00", temperatura: 30, humedad_ambiente: 50, humedad_suelo: 50, creado_en: "2026-10-14T12:00:00Z", id_dispositivo: "invernadero_prueba_01" },
-  { tiempo: "13:00", temperatura: 31, humedad_ambiente: 48, humedad_suelo: 48, creado_en: "2026-10-14T13:00:00Z", id_dispositivo: "invernadero_prueba_01" },
-  { tiempo: "14:00", temperatura: 31, humedad_ambiente: 45, humedad_suelo: 46, creado_en: "2026-10-14T14:00:00Z", id_dispositivo: "invernadero_prueba_01" },
-];
-
 export default function Analitica() {
-  const [datos, setDatos] = useState<DatosTelemetriaHistorica[]>(mockData);
+  const [datos, setDatos] = useState<DatosTelemetriaHistorica[]>([]);
   const [cargando, setCargando] = useState<boolean>(true);
-  const [usandoMock, setUsandoMock] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
   const [rango, setRango] = useState<"24h" | "7d">("24h");
   const [limite, setLimite] = useState<number>(24);
+  const [dispositivoId, setDispositivoId] = useState<string>("invernadero_prueba_01");
 
-  const consultarHistorial = (cantidad: number) => {
+  const consultarHistorial = (cantidad: number, id: string = dispositivoId) => {
     setCargando(true);
-    obtenerDatosGrafica(cantidad)
+    setError(null);
+    obtenerDatosGrafica(cantidad, id)
       .then((respuesta) => {
-        if (respuesta && respuesta.length > 0) {
-          // Invertir orden para desplegar cronologicamente de izquierda a derecha
+        if (Array.isArray(respuesta) && respuesta.length > 0) {
+          // Desplegar cronologicamente de izquierda a derecha
           setDatos([...respuesta].reverse());
-          setUsandoMock(false);
         } else {
-          setDatos(mockData);
-          setUsandoMock(true);
+          setDatos([]);
         }
         setCargando(false);
       })
-      .catch(() => {
-        setDatos(mockData);
-        setUsandoMock(true);
+      .catch((err) => {
+        setDatos([]);
+        setError(
+          err instanceof Error
+            ? err.message
+            : "No se pudo recuperar el historial de Supabase."
+        );
         setCargando(false);
       });
   };
@@ -63,23 +57,25 @@ export default function Analitica() {
   useEffect(() => {
     let cancelado = false;
 
-    obtenerDatosGrafica(limite)
+    obtenerDatosGrafica(limite, dispositivoId)
       .then((respuesta) => {
         if (!cancelado) {
-          if (respuesta && respuesta.length > 0) {
+          if (Array.isArray(respuesta) && respuesta.length > 0) {
             setDatos([...respuesta].reverse());
-            setUsandoMock(false);
           } else {
-            setDatos(mockData);
-            setUsandoMock(true);
+            setDatos([]);
           }
           setCargando(false);
         }
       })
-      .catch(() => {
+      .catch((err) => {
         if (!cancelado) {
-          setDatos(mockData);
-          setUsandoMock(true);
+          setDatos([]);
+          setError(
+            err instanceof Error
+              ? err.message
+              : "No se pudo conectar con el servicio de historial."
+          );
           setCargando(false);
         }
       });
@@ -87,7 +83,7 @@ export default function Analitica() {
     return () => {
       cancelado = true;
     };
-  }, [limite]);
+  }, [limite, dispositivoId]);
 
   const datosGrafica = useMemo(() => {
     return datos.map((d) => {
@@ -95,7 +91,10 @@ export default function Analitica() {
       if (!etiquetaTiempo && d.creado_en) {
         try {
           const fecha = new Date(d.creado_en);
-          etiquetaTiempo = fecha.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+          etiquetaTiempo = fecha.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
         } catch {
           etiquetaTiempo = "--:--";
         }
@@ -106,7 +105,7 @@ export default function Analitica() {
         humedad: Number(d.humedad_ambiente) || 0,
         humedad_suelo: Number(d.humedad_suelo) || 0,
         fechaCompleta: d.creado_en || "",
-        id_dispositivo: d.id_dispositivo || "invernadero_01",
+        id_dispositivo: d.id_dispositivo || "invernadero_prueba_01",
       };
     });
   }, [datos]);
@@ -114,11 +113,11 @@ export default function Analitica() {
   const metricas = useMemo(() => {
     if (!datos.length) {
       return {
-        tempPromedio: "0",
-        tempMax: "0",
-        tempMin: "0",
-        humAmbPromedio: "0",
-        humSueloPromedio: "0",
+        tempPromedio: "--",
+        tempMax: "--",
+        tempMin: "--",
+        humAmbPromedio: "--",
+        humSueloPromedio: "--",
       };
     }
 
@@ -146,12 +145,23 @@ export default function Analitica() {
             Análisis Histórico
           </h2>
           <p className="text-gray-400 text-sm mt-1">
-            Tendencias de telemetría extraídas de PostgreSQL (Supabase).
+            Tendencias de telemetría extraídas de PostgreSQL (Supabase) o Firebase Realtime.
           </p>
         </div>
 
-        {/* Selector de tiempo y refresco */}
-        <div className="flex items-center gap-3">
+        {/* Selector de tiempo, dispositivo y refresco */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-1.5 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 text-xs">
+            <span className="text-gray-400 font-mono text-[11px]">Nodo:</span>
+            <input
+              type="text"
+              value={dispositivoId}
+              onChange={(e) => setDispositivoId(e.target.value)}
+              placeholder="invernadero_prueba_01"
+              className="bg-transparent text-white font-mono focus:outline-none w-36 text-xs"
+            />
+          </div>
+
           <div className="flex items-center gap-1 bg-slate-800 p-1 rounded-lg border border-slate-700 text-sm">
             <button
               onClick={() => {
@@ -183,7 +193,7 @@ export default function Analitica() {
               onClick={() => setLimite((prev) => (prev === 24 ? 50 : 24))}
               className="px-3 py-1 text-gray-400 hover:text-white flex items-center gap-1 cursor-pointer"
             >
-              <Calendar className="w-4 h-4" /> Filtro
+              <Calendar className="w-4 h-4" /> Filtro ({limite})
             </button>
           </div>
 
@@ -198,6 +208,14 @@ export default function Analitica() {
         </div>
       </div>
 
+      {/* Aviso de error en caso de fallo de red o conexion */}
+      {error && (
+        <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-xs flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
       {/* Tarjetas de Metricas Resumidas */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-agro-dark border border-agro-border rounded-xl p-5 flex flex-col justify-between">
@@ -209,10 +227,12 @@ export default function Analitica() {
             <span className="text-3xl font-bold text-white">
               {metricas.tempPromedio}
             </span>
-            <span className="text-gray-400 text-sm">°C</span>
+            {datos.length > 0 && <span className="text-gray-400 text-sm">°C</span>}
           </div>
           <span className="text-[11px] text-gray-500 mt-2">
-            Rango: {metricas.tempMin}°C min / {metricas.tempMax}°C max
+            {datos.length > 0
+              ? `Rango: ${metricas.tempMin}°C min / ${metricas.tempMax}°C max`
+              : "Sin lecturas registradas"}
           </span>
         </div>
 
@@ -225,10 +245,10 @@ export default function Analitica() {
             <span className="text-3xl font-bold text-white">
               {metricas.humAmbPromedio}
             </span>
-            <span className="text-gray-400 text-sm">%</span>
+            {datos.length > 0 && <span className="text-gray-400 text-sm">%</span>}
           </div>
           <span className="text-[11px] text-gray-500 mt-2">
-            Régimen óptimo de transpiración
+            {datos.length > 0 ? "Régimen agronómico registrado" : "Sin lecturas registradas"}
           </span>
         </div>
 
@@ -241,10 +261,10 @@ export default function Analitica() {
             <span className="text-3xl font-bold text-white">
               {metricas.humSueloPromedio}
             </span>
-            <span className="text-gray-400 text-sm">%</span>
+            {datos.length > 0 && <span className="text-gray-400 text-sm">%</span>}
           </div>
           <span className="text-[11px] text-gray-500 mt-2">
-            Lectura media volumétrica
+            {datos.length > 0 ? "Contenido volumétrico medio" : "Sin lecturas registradas"}
           </span>
         </div>
 
@@ -260,7 +280,9 @@ export default function Analitica() {
             <span className="text-gray-400 text-sm">muestras</span>
           </div>
           <span className="text-[11px] text-gray-500 mt-2">
-            {usandoMock ? "Modo simulación de respaldo" : "Origen: Supabase PostgreSQL"}
+            {datos.length > 0
+              ? `Origen: ${datos[0]?.origen_dato || "Supabase / Firebase"}`
+              : "Esperando lecturas de Supabase o Firebase"}
           </span>
         </div>
       </div>
@@ -269,7 +291,7 @@ export default function Analitica() {
       <div className="bg-agro-dark border border-agro-border rounded-xl p-6 h-[500px] flex flex-col">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
           <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wide">
-            Temperatura vs Humedad (Sector Norte)
+            Evolución de Variables Ambientales
           </h3>
           <div className="flex items-center gap-4 text-xs">
             <span className="flex items-center gap-1.5 text-agro-orange font-medium">
@@ -287,82 +309,106 @@ export default function Analitica() {
           </div>
         </div>
 
-        <div className="flex-1 w-full min-h-[350px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={datosGrafica} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <defs>
-                {/* Gradiente para Temperatura (Naranja) */}
-                <linearGradient id="colorTemp" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
-                </linearGradient>
-                {/* Gradiente para Humedad Ambiental (Azul) */}
-                <linearGradient id="colorHum" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                </linearGradient>
-                {/* Gradiente para Humedad de Suelo (Verde) */}
-                <linearGradient id="colorSuelo" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                </linearGradient>
-              </defs>
+        <div className="flex-1 w-full min-h-[350px] flex items-center justify-center">
+          {cargando ? (
+            <div className="flex flex-col items-center justify-center text-gray-400 gap-3">
+              <RefreshCw className="w-8 h-8 animate-spin text-agro-green" />
+              <p className="text-xs">Recuperando registros de Supabase o Firebase...</p>
+            </div>
+          ) : datos.length === 0 ? (
+            <div className="flex flex-col items-center justify-center text-center p-8 max-w-md border border-dashed border-agro-border rounded-xl text-gray-500">
+              <LineChart className="w-12 h-12 mb-3 opacity-20 text-agro-green" />
+              <p className="text-sm font-medium text-gray-300">
+                No hay datos de telemetría registrados aún
+              </p>
+              <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
+                Cuando el microcontrolador ESP32 transmita paquetes hacia el backend o Firebase, las tendencias se dibujarán automáticamente aquí.
+              </p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart
+                data={datosGrafica}
+                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              >
+                <defs>
+                  {/* Gradiente Temperatura */}
+                  <linearGradient id="colorTemp" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                  </linearGradient>
+                  {/* Gradiente Humedad Ambiental */}
+                  <linearGradient id="colorHum" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                  </linearGradient>
+                  {/* Gradiente Humedad de Suelo */}
+                  <linearGradient id="colorSuelo" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
 
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-              <XAxis
-                dataKey="tiempo"
-                stroke="#64748b"
-                tick={{ fontSize: 12, fill: "#94a3b8" }}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                stroke="#64748b"
-                tick={{ fontSize: 12, fill: "#94a3b8" }}
-                tickLine={false}
-                axisLine={false}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#0f172a",
-                  borderColor: "#1e293b",
-                  color: "#f8fafc",
-                  borderRadius: "0.75rem",
-                  boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.5)",
-                }}
-                itemStyle={{ color: "#e2e8f0" }}
-                labelStyle={{ color: "#94a3b8", fontWeight: "bold", marginBottom: "4px" }}
-              />
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                <XAxis
+                  dataKey="tiempo"
+                  stroke="#64748b"
+                  tick={{ fontSize: 12, fill: "#94a3b8" }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  stroke="#64748b"
+                  tick={{ fontSize: 12, fill: "#94a3b8" }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#0f172a",
+                    borderColor: "#1e293b",
+                    color: "#f8fafc",
+                    borderRadius: "0.75rem",
+                    boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.5)",
+                  }}
+                  itemStyle={{ color: "#e2e8f0" }}
+                  labelStyle={{
+                    color: "#94a3b8",
+                    fontWeight: "bold",
+                    marginBottom: "4px",
+                  }}
+                />
 
-              <Area
-                type="monotone"
-                dataKey="temperatura"
-                stroke="#f59e0b"
-                fillOpacity={1}
-                fill="url(#colorTemp)"
-                strokeWidth={2}
-                name="Temp (°C)"
-              />
-              <Area
-                type="monotone"
-                dataKey="humedad"
-                stroke="#3b82f6"
-                fillOpacity={1}
-                fill="url(#colorHum)"
-                strokeWidth={2}
-                name="Humedad Amb. (%)"
-              />
-              <Area
-                type="monotone"
-                dataKey="humedad_suelo"
-                stroke="#10b981"
-                fillOpacity={1}
-                fill="url(#colorSuelo)"
-                strokeWidth={2}
-                name="Humedad Suelo (%)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+                <Area
+                  type="monotone"
+                  dataKey="temperatura"
+                  stroke="#f59e0b"
+                  fillOpacity={1}
+                  fill="url(#colorTemp)"
+                  strokeWidth={2}
+                  name="Temp (°C)"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="humedad"
+                  stroke="#3b82f6"
+                  fillOpacity={1}
+                  fill="url(#colorHum)"
+                  strokeWidth={2}
+                  name="Humedad Amb. (%)"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="humedad_suelo"
+                  stroke="#10b981"
+                  fillOpacity={1}
+                  fill="url(#colorSuelo)"
+                  strokeWidth={2}
+                  name="Humedad Suelo (%)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
@@ -372,7 +418,7 @@ export default function Analitica() {
           Tabla de Telemetría Relacional
         </h3>
         <p className="text-xs text-gray-400 mb-4">
-          Registros procesados y almacenados en la tabla telemetria_historica.
+          Registros procesados y persistidos en la tabla telemetria_historica de Supabase.
         </p>
 
         <div className="overflow-x-auto">
@@ -383,29 +429,53 @@ export default function Analitica() {
                 <th className="py-3 px-4">Temperatura</th>
                 <th className="py-3 px-4">Humedad Amb.</th>
                 <th className="py-3 px-4">Suelo</th>
+                <th className="py-3 px-4">Origen</th>
                 <th className="py-3 px-4">Marca de Tiempo</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-agro-border/50">
-              {datos.slice().reverse().map((item, idx) => (
-                <tr key={idx} className="hover:bg-slate-800/30 transition-colors">
-                  <td className="py-3 px-4 font-mono text-gray-300">
-                    {String(item.id_dispositivo || "invernadero_prueba_01")}
-                  </td>
-                  <td className="py-3 px-4 font-semibold text-agro-orange">
-                    {item.temperatura}°C
-                  </td>
-                  <td className="py-3 px-4 text-blue-400 font-medium">
-                    {item.humedad_ambiente}%
-                  </td>
-                  <td className="py-3 px-4 text-agro-green font-medium">
-                    {item.humedad_suelo}%
-                  </td>
-                  <td className="py-3 px-4 text-gray-400 font-mono">
-                    {item.creado_en ? new Date(item.creado_en).toLocaleString() : String(item.tiempo || "--")}
+              {datos.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-gray-500 text-xs">
+                    {cargando
+                      ? "Cargando registros..."
+                      : "No se encontraron lecturas de telemetría en la base de datos ni en Firebase."}
                   </td>
                 </tr>
-              ))}
+              ) : (
+                datos
+                  .slice()
+                  .reverse()
+                  .map((item, idx) => (
+                    <tr
+                      key={idx}
+                      className="hover:bg-slate-800/30 transition-colors"
+                    >
+                      <td className="py-3 px-4 font-mono text-gray-300">
+                        {String(item.id_dispositivo || "invernadero_prueba_01")}
+                      </td>
+                      <td className="py-3 px-4 font-semibold text-agro-orange">
+                        {item.temperatura}°C
+                      </td>
+                      <td className="py-3 px-4 text-blue-400 font-medium">
+                        {item.humedad_ambiente}%
+                      </td>
+                      <td className="py-3 px-4 text-agro-green font-medium">
+                        {item.humedad_suelo}%
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono border border-slate-700 bg-slate-900 text-gray-300">
+                          {item.origen_dato || "Supabase"}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-gray-400 font-mono">
+                        {item.creado_en
+                          ? new Date(item.creado_en).toLocaleString()
+                          : String(item.tiempo || "--")}
+                      </td>
+                    </tr>
+                  ))
+              )}
             </tbody>
           </table>
         </div>

@@ -68,7 +68,7 @@ export default function RootLayout({
           
           {/* Top Header */}
           <header className="h-16 flex items-center justify-between px-8 border-b border-agro-border bg-agro-dark/50 backdrop-blur-sm">
-            <h1 className="text-xl font-semibold text-white tracking-tight">Sector Norte - Invernadero A</h1>
+            <h1 className="text-xl font-semibold text-white tracking-tight">AgroHub - Estación de Monitoreo Agrícola</h1>
             <div className="flex items-center gap-4 text-sm text-gray-400">
               <span className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-agro-green shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
