@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Brain, AlertTriangle, CheckCircle, Loader2, Info, Activity } from "lucide-react";
-import { obtenerDiagnosticoIA, DiagnosticoIA } from "@/services/api";
+import { Brain, Loader2, Activity } from "lucide-react";
+import { obtenerDiagnosticoIA } from "@/services/api";
+import { DiagnosticoIA } from "@/types";
+import { TarjetaSeveridad, DetalleDiagnostico } from "@/componentes/alertas";
 
 export default function AlertasIA() {
   const [cargando, setCargando] = useState(false);
@@ -24,19 +26,6 @@ export default function AlertasIA() {
       setError(mensaje);
     } finally {
       setCargando(false);
-    }
-  };
-
-  const renderIconoEstado = (estado: string) => {
-    switch (estado) {
-      case "OPTIMO":
-        return <CheckCircle className="w-8 h-8 text-agro-green" />;
-      case "ADVERTENCIA":
-        return <AlertTriangle className="w-8 h-8 text-agro-orange" />;
-      case "CRITICO":
-        return <AlertTriangle className="w-8 h-8 text-red-500 animate-pulse" />;
-      default:
-        return <Info className="w-8 h-8 text-gray-500" />;
     }
   };
 
@@ -91,56 +80,17 @@ export default function AlertasIA() {
       {/* Resultados del Analisis */}
       {diagnostico ? (
         <div className="space-y-6">
-          {/* Tarjeta de Severidad Principal */}
-          <div className="bg-agro-dark border border-agro-border rounded-xl p-6 flex items-start gap-4">
-            <div className="p-3 bg-slate-800 rounded-full">
-              {renderIconoEstado(diagnostico.estado_general)}
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
-                Estado General del Cultivo
-              </h3>
-              <p
-                className={`text-2xl font-bold mt-1 ${
-                  diagnostico.estado_general === "OPTIMO"
-                    ? "text-agro-green"
-                    : diagnostico.estado_general === "ADVERTENCIA"
-                    ? "text-agro-orange"
-                    : "text-red-500"
-                }`}
-              >
-                {diagnostico.estado_general}
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Tarjeta Riesgo */}
-            <div className="bg-agro-dark border border-agro-border rounded-xl p-6">
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">
-                Riesgo Detectado
-              </h3>
-              <p className="text-white text-lg font-medium">
-                {diagnostico.riesgo_detectado}
-              </p>
-            </div>
-
-            {/* Tarjeta Recomendacion */}
-            <div className="bg-agro-dark border border-agro-border rounded-xl p-6">
-              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">
-                Recomendación Técnica
-              </h3>
-              <p className="text-gray-300 leading-relaxed">
-                {diagnostico.recomendacion_tecnica}
-              </p>
-            </div>
-          </div>
+          <TarjetaSeveridad estadoGeneral={diagnostico.estado_general} />
+          <DetalleDiagnostico
+            riesgoDetectado={diagnostico.riesgo_detectado}
+            recomendacionTecnica={diagnostico.recomendacion_tecnica}
+          />
         </div>
       ) : (
         /* Estado Vacio (Antes de solicitar analisis) */
         <div className="h-64 border-2 border-dashed border-agro-border rounded-xl flex flex-col items-center justify-center text-gray-500">
           <Brain className="w-12 h-12 mb-3 opacity-20" />
-          <p>Presiona el botón para procesar el historial reciente de Supabase.</p>
+          <p>Presiona el botón para procesar el historial reciente de Supabase o Firebase.</p>
         </div>
       )}
     </div>
