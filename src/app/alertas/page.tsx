@@ -69,7 +69,7 @@ export default function DiagnosticosIA() {
     try {
       const data = await registrarCultivoIA(nombre);
       const ids = data.cultivos.map((c) => c.id);
-      setOpcionesCultivo(ids);
+      setOpcionesCultivo(ids.length > 0 ? ids : [...opcionesCultivo, data.cultivo]);
       setCultivo(data.cultivo);
       setNuevoCultivo("");
       setMostrarFormulario(false);
@@ -87,6 +87,7 @@ export default function DiagnosticosIA() {
     setCargando(true);
     setError(null);
     setAviso(null);
+    setDiagnostico(null);
     try {
       try {
         await actualizarCultivoDispositivo(DISPOSITIVO_ACTIVO, cultivo);
@@ -94,9 +95,18 @@ export default function DiagnosticosIA() {
         // El diagnostico igual puede usar el query param
       }
       const resultado = await obtenerDiagnosticoIA(DISPOSITIVO_ACTIVO, cultivo);
+      if (
+        cultivo &&
+        resultado.cultivo.toLowerCase() !== cultivo.toLowerCase()
+      ) {
+        throw new Error(
+          `Se pidió diagnóstico de ${cultivo}, pero la API devolvió ${resultado.cultivo}. Revisa que el backend desplegado esté actualizado.`
+        );
+      }
       setDiagnostico(resultado.diagnostico);
       setCultivoDiagnostico(resultado.cultivo);
     } catch (err) {
+      setDiagnostico(null);
       setError(
         err instanceof Error
           ? err.message
@@ -144,7 +154,12 @@ export default function DiagnosticosIA() {
             </span>
             <select
               value={cultivo}
-              onChange={(e) => setCultivo(e.target.value)}
+              onChange={(e) => {
+                setCultivo(e.target.value);
+                setDiagnostico(null);
+                setError(null);
+                setAviso(null);
+              }}
               className="bg-slate-950 border border-agro-border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-agro-green"
             >
               {opcionesCultivo.map((opcion) => (

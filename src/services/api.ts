@@ -36,17 +36,27 @@ const ejecutarFetchSeguro = async (ruta: string, opciones?: RequestInit): Promis
   const baseUrl = getBaseUrl();
   const defaultHeaders = getHeaders();
   const headers = { ...defaultHeaders, ...(opciones?.headers as Record<string, string> | undefined) };
+  const esLocal = baseUrl.includes("127.0.0.1") || baseUrl.includes("localhost");
+  const candidatos = esLocal
+    ? [baseUrl]
+    : [baseUrl, "http://127.0.0.1:8000"];
 
-  try {
-    const res = await fetch(`${baseUrl}${ruta}`, { ...opciones, headers });
-    if (res.ok || (res.status !== 404 && res.status !== 502 && res.status !== 503)) {
-      return res;
+  let ultimoError: unknown = null;
+  for (const origen of candidatos) {
+    try {
+      const res = await fetch(`${origen}${ruta}`, { ...opciones, headers });
+      if (res.ok || (res.status !== 404 && res.status !== 502 && res.status !== 503)) {
+        return res;
+      }
+      ultimoError = new Error(`HTTP ${res.status}`);
+    } catch (err) {
+      ultimoError = err;
     }
-  } catch {
-    // Si falla la conexion remota, intentar con el host local
   }
 
-  return fetch(`http://127.0.0.1:8000${ruta}`, { ...opciones, headers });
+  throw ultimoError instanceof Error
+    ? ultimoError
+    : new Error("No se pudo conectar con la API de AgroHub");
 };
 
 export const verificarEstadoBackend = async (): Promise<{ status: string; version?: string }> => {
@@ -215,42 +225,127 @@ export const actualizarCultivoDispositivo = async (
   }
 };
 
+const CLAVE_CULTIVOS_LOCAL = "agrohub_cultivos_personalizados";
+
+const leerCultivosLocales = (): string[] => {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(CLAVE_CULTIVOS_LOCAL);
+    const data = raw ? (JSON.parse(raw) as unknown) : [];
+    return Array.isArray(data) ? data.map(String).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+};
+
+const guardarCultivoLocal = (nombre: string): string[] => {
+  const limpio = nombre.trim();
+  const actuales = leerCultivosLocales();
+  const sinDup = actuales.filter((c) => c.toLowerCase() !== limpio.toLowerCase());
+  const siguiente = [...sinDup, limpio];
+  window.localStorage.setItem(CLAVE_CULTIVOS_LOCAL, JSON.stringify(siguiente));
+  return siguiente;
+};
+
 export const obtenerCultivosIA = async (): Promise<{
   cultivo_por_defecto: string;
   cultivos: CultivoCatalogo[];
 }> => {
-  const respuesta = await ejecutarFetchSeguro("/api/ia/cultivos");
-  if (!respuesta.ok) {
-    throw new Error("No se pudo cargar el catalogo de cultivos");
+  const locales = leerCultivosLocales();
+  try {
+    const respuesta = await ejecutarFetchSeguro("/api/ia/cultivos");
+    if (respuesta.ok) {
+      const data = (await respuesta.json()) as {
+        cultivo_por_defecto?: string;
+        cultivos?: CultivoCatalogo[];
+      };
+      const remotos = Array.isArray(data.cultivos) ? data.cultivos : [];
+      const ids = new Set(remotos.map((c) => c.id.toLowerCase()));
+      const extras = locales
+        .filter((n) => !ids.has(n.toLowerCase()))
+        .map((id) => ({
+          id,
+          descripcion: `Cultivo personalizado: ${id}`,
+          temperatura_c: [18, 28],
+          humedad_ambiente_pct: [45, 75],
+          humedad_suelo_pct: [55, 80],
+          luz_lux: [8000, 35000],
+          notas: "Agregado localmente en este navegador.",
+          origen: "personalizado",
+        }));
+      return {
+        cultivo_por_defecto: data.cultivo_por_defecto || "Tomate",
+        cultivos: [...remotos, ...extras],
+      };
+    }
+  } catch {
+    // Continuar con catalogo local
   }
-  const data = (await respuesta.json()) as {
-    cultivo_por_defecto?: string;
-    cultivos?: CultivoCatalogo[];
-  };
+
+  const base = ["Tomate", "Lechuga", "Pimiento", "Fresa", "Albahaca", "Pepino"];
+  const unidos = [...base];
+  for (const n of locales) {
+    if (!unidos.some((c) => c.toLowerCase() === n.toLowerCase())) {
+      unidos.push(n);
+    }
+  }
   return {
-    cultivo_por_defecto: data.cultivo_por_defecto || "Tomate",
-    cultivos: Array.isArray(data.cultivos) ? data.cultivos : [],
+    cultivo_por_defecto: "Tomate",
+    cultivos: unidos.map((id) => ({
+      id,
+      descripcion: id,
+      temperatura_c: [18, 28],
+      humedad_ambiente_pct: [45, 75],
+      humedad_suelo_pct: [55, 80],
+      luz_lux: [8000, 35000],
+      notas: "",
+      origen: "personalizado",
+    })),
   };
 };
 
 export const registrarCultivoIA = async (
   nombre: string
 ): Promise<{ cultivo: string; cultivos: CultivoCatalogo[] }> => {
-  const respuesta = await ejecutarFetchSeguro("/api/ia/cultivos", {
-    method: "POST",
-    body: JSON.stringify({ nombre }),
-  });
-  if (!respuesta.ok) {
-    throw new Error("No se pudo agregar el cultivo al selector");
+  const limpio = nombre.trim();
+  try {
+    const respuesta = await ejecutarFetchSeguro("/api/ia/cultivos", {
+      method: "POST",
+      body: JSON.stringify({ nombre: limpio }),
+    });
+    if (respuesta.ok) {
+      guardarCultivoLocal(limpio);
+      const data = (await respuesta.json()) as {
+        cultivo?: string;
+        cultivos?: CultivoCatalogo[];
+      };
+      return {
+        cultivo: data.cultivo || limpio,
+        cultivos: Array.isArray(data.cultivos) ? data.cultivos : [],
+      };
+    }
+  } catch {
+    // Fallback local si la API desplegada no tiene el endpoint o esta caída
   }
-  const data = (await respuesta.json()) as {
-    cultivo?: string;
-    cultivos?: CultivoCatalogo[];
-  };
-  return {
-    cultivo: data.cultivo || nombre.trim(),
-    cultivos: Array.isArray(data.cultivos) ? data.cultivos : [],
-  };
+
+  const locales = guardarCultivoLocal(limpio);
+  const catalogo = await obtenerCultivosIA();
+  const ids = new Set(catalogo.cultivos.map((c) => c.id.toLowerCase()));
+  for (const n of locales) {
+    if (!ids.has(n.toLowerCase())) {
+      catalogo.cultivos.push({
+        id: n,
+        descripcion: `Cultivo personalizado: ${n}`,
+        temperatura_c: [18, 28],
+        humedad_ambiente_pct: [45, 75],
+        humedad_suelo_pct: [55, 80],
+        luz_lux: [8000, 35000],
+        notas: "Guardado en este navegador hasta sincronizar con la API.",
+        origen: "personalizado",
+      });
+    }
+  }
+  return { cultivo: limpio, cultivos: catalogo.cultivos };
 };
 
 export const obtenerDiagnosticoIA = async (
@@ -258,6 +353,8 @@ export const obtenerDiagnosticoIA = async (
   cultivo?: string
 ): Promise<{ diagnostico: DiagnosticoIA; cultivo: string }> => {
   const query = cultivo ? `?cultivo=${encodeURIComponent(cultivo)}` : "";
+  let errorApi: string | null = null;
+
   try {
     const respuesta = await ejecutarFetchSeguro(
       `/api/ia/diagnostico/${dispositivoId}${query}`
@@ -269,31 +366,52 @@ export const obtenerDiagnosticoIA = async (
         cultivo: json.cultivo || cultivo || "Tomate",
       };
     }
-  } catch {
-    // Continuar a lectura de contingencia
-  }
-
-  try {
-    const diagRef = ref(db, `invernadero/${dispositivoId}/ultimo_diagnostico_ia`);
-    const snap = await get(diagRef);
-    if (snap.exists()) {
-      const val = snap.val() as Record<string, unknown>;
-      return {
-        diagnostico: {
-          estado_general: (val.estado_general as DiagnosticoIA["estado_general"]) || "DESCONOCIDO",
-          riesgo_detectado: String(val.riesgo_detectado || "Sin anomalía reportada"),
-          recomendacion_tecnica: String(val.recomendacion_tecnica || "Mantener monitoreo continuo."),
-          evaluacion_humedad: val.evaluacion_humedad
-            ? String(val.evaluacion_humedad)
-            : undefined,
-          evaluacion_luz: val.evaluacion_luz ? String(val.evaluacion_luz) : undefined,
-        },
-        cultivo: String(val.cultivo || cultivo || "Tomate"),
-      };
+    if (respuesta.status === 404) {
+      throw new Error(
+        "No hay historial en Supabase para diagnosticar. Con el circuito apagado solo queda la última foto en Firebase."
+      );
     }
-  } catch {
-    // Error en lectura de contingencia
+    errorApi = `La API respondió ${respuesta.status} al pedir el diagnóstico.`;
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("historial")) {
+      throw err;
+    }
+    errorApi =
+      err instanceof Error
+        ? err.message === "Failed to fetch"
+          ? "No hay conexión con la API. Arranca el backend o revisa NEXT_PUBLIC_API_URL."
+          : err.message
+        : "No se pudo conectar con la API.";
   }
 
-  throw new Error("No se pudo obtener el diagnóstico del servicio agronómico inteligente.");
+  // Solo usar Firebase si NO se pidió regenerar para un cultivo concreto.
+  // Si se pidió (ej. Tomate), no devolver un diagnóstico viejo de Pepino.
+  if (!cultivo) {
+    try {
+      const diagRef = ref(db, `invernadero/${dispositivoId}/ultimo_diagnostico_ia`);
+      const snap = await get(diagRef);
+      if (snap.exists()) {
+        const val = snap.val() as Record<string, unknown>;
+        return {
+          diagnostico: {
+            estado_general: (val.estado_general as DiagnosticoIA["estado_general"]) || "DESCONOCIDO",
+            riesgo_detectado: String(val.riesgo_detectado || "Sin anomalía reportada"),
+            recomendacion_tecnica: String(val.recomendacion_tecnica || "Mantener monitoreo continuo."),
+            evaluacion_humedad: val.evaluacion_humedad
+              ? String(val.evaluacion_humedad)
+              : undefined,
+            evaluacion_luz: val.evaluacion_luz ? String(val.evaluacion_luz) : undefined,
+          },
+          cultivo: String(val.cultivo || "Tomate"),
+        };
+      }
+    } catch {
+      // sin contingencia
+    }
+  }
+
+  throw new Error(
+    errorApi ||
+      "No se pudo obtener un diagnóstico nuevo. Verifica que la API esté en marcha y actualizada."
+  );
 };
