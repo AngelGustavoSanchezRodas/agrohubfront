@@ -5,6 +5,7 @@ import { ref, onValue } from "firebase/database";
 import { db } from "@/lib/firebase";
 import { Thermometer, Droplets, Leaf, Sun } from "lucide-react";
 import { obtenerDatosGrafica } from "@/services/api";
+import { horaLecturaHeltec } from "@/lib/tiempo";
 import { TelemetriaEnVivo, DatosTelemetriaHistorica } from "@/types";
 import {
   TarjetaSensor,
@@ -67,12 +68,12 @@ export default function Dashboard() {
       <div>
         <h2 className="text-2xl font-bold text-white tracking-tight">Monitoreo del Cultivo</h2>
         <p className="text-gray-400 text-sm mt-1">
-          El Heltec publica en la API y el panel lee el estado vivo desde Firebase.
+          El Heltec escribe el estado vivo en Firebase y esta pantalla lo muestra tal cual llega.
         </p>
         {datos.timestamp && (
           <p className="text-xs text-agro-green mt-2 flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-agro-green animate-pulse"></span>
-            Última lectura: {new Date(datos.timestamp).toLocaleTimeString()}
+            Última lectura: {horaLecturaHeltec(datos.timestamp)}
           </p>
         )}
       </div>

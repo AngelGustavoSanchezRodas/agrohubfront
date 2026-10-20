@@ -48,7 +48,7 @@ const elementosNavegacion: ElementoNavegacion[] = [
 
 export function Sidebar() {
   const rutaActual = usePathname();
-  const [sistemaOperativo, setSistemaOperativo] = useState<boolean>(true);
+  const [sistemaOperativo, setSistemaOperativo] = useState<boolean | null>(null);
 
   useEffect(() => {
     verificarEstadoBackend().then((res) => {
@@ -113,19 +113,29 @@ export function Sidebar() {
             <span className="text-gray-400 flex items-center gap-2">
               <span
                 className={`w-2 h-2 rounded-full ${
-                  sistemaOperativo
-                    ? "bg-agro-green shadow-[0_0_8px_rgba(16,185,129,0.8)]"
-                    : "bg-amber-400"
+                  sistemaOperativo === null
+                    ? "bg-gray-500"
+                    : sistemaOperativo
+                      ? "bg-agro-green"
+                      : "bg-amber-400"
                 }`}
               ></span>
               Plataforma
             </span>
             <span
               className={`font-semibold ${
-                sistemaOperativo ? "text-agro-green" : "text-amber-400"
+                sistemaOperativo === null
+                  ? "text-gray-400"
+                  : sistemaOperativo
+                    ? "text-agro-green"
+                    : "text-amber-400"
               }`}
             >
-              {sistemaOperativo ? "Operativa" : "Intermitente"}
+              {sistemaOperativo === null
+                ? "Comprobando"
+                : sistemaOperativo
+                  ? "Operativa"
+                  : "Intermitente"}
             </span>
           </div>
         </div>
@@ -135,11 +145,11 @@ export function Sidebar() {
       <div className="p-4 border-t border-agro-border">
         <div className="flex items-center px-2 py-1">
           <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white mr-3">
-            OP
+            V3
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-medium text-white">Operador Agrónomo</span>
-            <span className="text-xs text-gray-500">Sesión Activa</span>
+            <span className="text-sm font-medium text-white">invernadero_prueba_01</span>
+            <span className="text-xs text-gray-500">Heltec WiFi LoRa 32 V3</span>
           </div>
         </div>
       </div>

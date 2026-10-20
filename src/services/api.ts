@@ -6,6 +6,7 @@ import {
   DispositivoBackend,
   DiagnosticoIA,
   RespuestaDiagnosticoBackend,
+  AlertaAgronomica,
 } from "@/types";
 
 export type {
@@ -198,9 +199,9 @@ export const obtenerDispositivos = async (): Promise<DispositivoBackend[]> => {
       const val = snap.val() as Record<string, Record<string, unknown>>;
       return Object.keys(val).map((id) => ({
         id_dispositivo: id,
-        nombre: "Estación de Cultivo",
-        ubicacion: "Invernadero Principal",
-        estado_conexion: "ONLINE",
+        nombre: id,
+        ubicacion: null,
+        estado_conexion: "INACTIVO",
       }));
     }
   } catch {
@@ -208,6 +209,24 @@ export const obtenerDispositivos = async (): Promise<DispositivoBackend[]> => {
   }
 
   return [];
+};
+
+export const obtenerAlertas = async (): Promise<AlertaAgronomica[]> => {
+  const respuesta = await ejecutarFetchSeguro("/api/alertas?limite=50");
+  if (!respuesta.ok) {
+    throw new Error("No se pudieron consultar las alertas agronomicas");
+  }
+  const data = (await respuesta.json()) as AlertaAgronomica[];
+  return Array.isArray(data) ? data : [];
+};
+
+export const resolverAlerta = async (idAlerta: number): Promise<void> => {
+  const respuesta = await ejecutarFetchSeguro(`/api/alertas/${idAlerta}/resolver`, {
+    method: "PATCH",
+  });
+  if (!respuesta.ok) {
+    throw new Error("No se pudo marcar la alerta como resuelta");
+  }
 };
 
 export const obtenerDiagnosticoIA = async (

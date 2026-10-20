@@ -5,6 +5,7 @@ import { ref, onValue } from "firebase/database";
 import { db } from "@/lib/firebase";
 import { Cpu, Search, Filter, RefreshCw, AlertCircle } from "lucide-react";
 import { obtenerDispositivos } from "@/services/api";
+import { fechaLecturaHeltec, lecturaReciente } from "@/lib/tiempo";
 import { DispositivoBackend, DispositivoConsolidado, NodoFirebase } from "@/types";
 import {
   MetricasDispositivos,
@@ -69,8 +70,8 @@ export default function Dispositivos() {
     for (const d of dispositivosBackend) {
       mapa.set(d.id_dispositivo, {
         id: d.id_dispositivo,
-        nombre: d.nombre || "Estación de Cultivo",
-        ubicacion: d.ubicacion || "Área Principal",
+        nombre: d.nombre || d.id_dispositivo,
+        ubicacion: d.ubicacion || "Sin ubicación registrada",
         estado: d.estado_conexion?.toUpperCase() === "ONLINE" ? "ONLINE" : "OFFLINE",
         ultimaConexion: d.fecha_instalacion
           ? new Date(d.fecha_instalacion).toLocaleString()
@@ -86,19 +87,16 @@ export default function Dispositivos() {
 
       let esOnline = false;
       if (estadoActual?.timestamp) {
-        try {
-          const fechaPulso = new Date(estadoActual.timestamp);
-          timestampFormateado = fechaPulso.toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-            day: "2-digit",
-            month: "2-digit",
-          });
-          const deltaMinutos = (Date.now() - fechaPulso.getTime()) / (1000 * 60);
-          esOnline = deltaMinutos >= 0 && deltaMinutos <= 30;
-        } catch {
-          timestampFormateado = String(estadoActual.timestamp);
-        }
+        const fechaPulso = fechaLecturaHeltec(estadoActual.timestamp);
+        timestampFormateado = fechaPulso
+          ? fechaPulso.toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+              day: "2-digit",
+              month: "2-digit",
+            })
+          : String(estadoActual.timestamp);
+        esOnline = lecturaReciente(estadoActual.timestamp);
       }
 
       if (mapa.has(id)) {
@@ -111,8 +109,8 @@ export default function Dispositivos() {
       } else {
         mapa.set(id, {
           id,
-          nombre: "Estación de Cultivo",
-          ubicacion: "Invernadero Principal",
+          nombre: id,
+          ubicacion: "Sin ubicación registrada",
           estado: esOnline ? "ONLINE" : "OFFLINE",
           ultimaConexion: timestampFormateado,
           temperatura: estadoActual?.temperatura,

@@ -43,7 +43,7 @@ export function MetricasCards({ metricas, totalMuestras }: MetricasCardsProps) {
           {tieneDatos && <span className="text-gray-400 text-sm">%</span>}
         </div>
         <span className="text-[11px] text-gray-500 mt-2">
-          {tieneDatos ? "Régimen agronómico registrado" : "Sin lecturas registradas"}
+          {tieneDatos ? "Promedio de las lecturas cargadas" : "Sin lecturas registradas"}
         </span>
       </div>
 
@@ -60,7 +60,7 @@ export function MetricasCards({ metricas, totalMuestras }: MetricasCardsProps) {
           {tieneDatos && <span className="text-gray-400 text-sm">%</span>}
         </div>
         <span className="text-[11px] text-gray-500 mt-2">
-          {tieneDatos ? "Contenido volumétrico medio" : "Sin lecturas registradas"}
+          {tieneDatos ? "Promedio de las lecturas cargadas" : "Sin lecturas registradas"}
         </span>
       </div>
 
@@ -78,7 +78,7 @@ export function MetricasCards({ metricas, totalMuestras }: MetricasCardsProps) {
         </div>
         <span className="text-[11px] text-gray-500 mt-2">
           {tieneDatos
-            ? "Ventana temporal activa del cultivo"
+            ? "Cantidad de filas devueltas por el historial"
             : "Esperando nuevas lecturas de sensores"}
         </span>
       </div>

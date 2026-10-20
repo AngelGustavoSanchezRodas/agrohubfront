@@ -33,8 +33,8 @@ export function ControlActuador({ estadoBomba }: ControlActuadorProps) {
 
       <span className="text-[11px] text-gray-500 mt-2 block">
         {estadoBomba
-          ? "Bomba de agua en operación nominal"
-          : "Circuito de riego en monitoreo pasivo"}
+          ? "El Heltec reporta la bomba encendida"
+          : "El Heltec reporta la bomba apagada"}
       </span>
     </div>
   );

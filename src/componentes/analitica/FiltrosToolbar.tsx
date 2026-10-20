@@ -32,7 +32,7 @@ export function FiltrosToolbar({
               : "text-gray-400 hover:text-white"
           }`}
         >
-          Últimas 24h
+          24 lecturas
         </button>
         <button
           onClick={() => {
@@ -45,7 +45,7 @@ export function FiltrosToolbar({
               : "text-gray-400 hover:text-white"
           }`}
         >
-          Últimos 7 días
+          50 lecturas
         </button>
       </div>
 

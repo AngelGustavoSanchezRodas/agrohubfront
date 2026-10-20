@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { LineChart, AlertCircle } from "lucide-react";
 import { obtenerDatosGrafica } from "@/services/api";
+import { etiquetaLectura } from "@/lib/tiempo";
 import { DatosTelemetriaHistorica, MetricasResumen } from "@/types";
 import {
   MetricasCards,
@@ -66,18 +67,13 @@ export default function Analitica() {
     return datos.map((d) => {
       let etiquetaTiempo = typeof d.tiempo === "string" ? d.tiempo : "";
       if (!etiquetaTiempo && d.creado_en) {
-        try {
-          const fecha = new Date(d.creado_en);
-          etiquetaTiempo = fecha.toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          });
-        } catch {
-          etiquetaTiempo = "--:--";
-        }
+        etiquetaTiempo = etiquetaLectura(d.creado_en, {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
       }
       return {
-        tiempo: etiquetaTiempo || "00:00",
+        tiempo: etiquetaTiempo || "--:--",
         temperatura: Number(d.temperatura) || 0,
         humedad: Number(d.humedad_ambiente) || 0,
         humedad_suelo: Number(d.humedad_suelo) || 0,

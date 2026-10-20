@@ -9,6 +9,7 @@ import {
 } from "recharts";
 import { LineChart as LineChartIcon, RefreshCw } from "lucide-react";
 import { DatosTelemetriaHistorica } from "@/types";
+import { etiquetaLectura } from "@/lib/tiempo";
 
 interface GraficaRecienteProps {
   historial: DatosTelemetriaHistorica[];
@@ -19,17 +20,13 @@ export function GraficaReciente({ historial, cargando }: GraficaRecienteProps) {
   const datosGrafica = historial.map((d) => {
     let tiempo = typeof d.tiempo === "string" ? d.tiempo : "";
     if (!tiempo && d.creado_en) {
-      try {
-        tiempo = new Date(d.creado_en).toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-      } catch {
-        tiempo = "--:--";
-      }
+      tiempo = etiquetaLectura(d.creado_en, {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
     }
     return {
-      tiempo: tiempo || "00:00",
+      tiempo: tiempo || "--:--",
       temperatura: Number(d.temperatura) || 0,
       humedad: Number(d.humedad_ambiente) || 0,
     };
@@ -40,7 +37,7 @@ export function GraficaReciente({ historial, cargando }: GraficaRecienteProps) {
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-sm font-semibold text-white uppercase tracking-wide flex items-center gap-2">
           <LineChartIcon className="w-4 h-4 text-agro-green" />
-          Tendencia de las Últimas Horas
+          Últimas lecturas del historial
         </h3>
         <span className="text-xs text-gray-500 font-mono">
           {historial.length} lecturas

@@ -33,7 +33,7 @@ export function TablaDispositivos({ dispositivos, cargando }: TablaDispositivosP
               <tr key={estacion.id} className="hover:bg-slate-800/30 transition-colors">
                 <td className="px-6 py-4">
                   <div className="font-semibold text-white text-sm">
-                    {estacion.nombre || "Estación Principal"}
+                    {estacion.nombre || estacion.id}
                   </div>
                 </td>
                 <td className="px-6 py-4 text-gray-400">{estacion.ubicacion}</td>

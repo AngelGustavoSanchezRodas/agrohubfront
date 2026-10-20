@@ -1,4 +1,5 @@
 import { DatosTelemetriaHistorica } from "@/types";
+import { etiquetaLectura } from "@/lib/tiempo";
 
 interface TablaTelemetriaProps {
   datos: DatosTelemetriaHistorica[];
@@ -52,7 +53,7 @@ export function TablaTelemetria({ datos, cargando }: TablaTelemetriaProps) {
                     >
                       <td className="py-3 px-4 text-gray-300 font-medium">
                         {item.creado_en
-                          ? new Date(item.creado_en).toLocaleString()
+                          ? etiquetaLectura(item.creado_en)
                           : String(item.tiempo || "--")}
                       </td>
                       <td className="py-3 px-4 font-semibold text-agro-orange">
