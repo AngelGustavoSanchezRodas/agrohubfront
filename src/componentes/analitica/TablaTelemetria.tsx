@@ -23,13 +23,15 @@ export function TablaTelemetria({ datos, cargando }: TablaTelemetriaProps) {
               <th className="py-3 px-4">Temperatura</th>
               <th className="py-3 px-4">Humedad Amb.</th>
               <th className="py-3 px-4">Humedad Sustrato</th>
+              <th className="py-3 px-4">Luz</th>
+              <th className="py-3 px-4">Bomba</th>
               <th className="py-3 px-4 text-right">Condición</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-agro-border/50">
             {datos.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-gray-500 text-xs">
+                <td colSpan={7} className="py-8 text-center text-gray-500 text-xs">
                   {cargando
                     ? "Cargando registros..."
                     : "No se encontraron lecturas en el período seleccionado."}
@@ -61,6 +63,12 @@ export function TablaTelemetria({ datos, cargando }: TablaTelemetriaProps) {
                       </td>
                       <td className="py-3 px-4 text-agro-green font-medium">
                         {item.humedad_suelo}%
+                      </td>
+                      <td className="py-3 px-4 text-amber-300 font-medium">
+                        {item.intensidad_luz_lux != null ? `${item.intensidad_luz_lux} lx` : "--"}
+                      </td>
+                      <td className="py-3 px-4 text-gray-300">
+                        {item.estado_bomba === true ? "Encendida" : item.estado_bomba === false ? "Apagada" : "--"}
                       </td>
                       <td className="py-3 px-4 text-right">
                         <span

@@ -19,6 +19,7 @@ export interface TelemetriaEnVivo {
   humedad_suelo: number | string;
   estado_bomba?: boolean;
   timestamp?: string;
+  intensidad_luz_lux?: number | string;
   luz_uv?: number;
   radiacion_solar?: number;
   indice_calor?: number;
