@@ -1,5 +1,6 @@
 import { ref, get } from "firebase/database";
 import { db } from "@/lib/firebase";
+import { DISPOSITIVO_ACTIVO } from "@/lib/dispositivos";
 import {
   DatosTelemetriaHistorica,
   RespuestaHistorialBackend,
@@ -7,6 +8,7 @@ import {
   DiagnosticoIA,
   RespuestaDiagnosticoBackend,
   AlertaAgronomica,
+  CultivoCatalogo,
 } from "@/types";
 
 export type {
@@ -57,21 +59,28 @@ export const verificarEstadoBackend = async (): Promise<{ status: string; versio
   }
 };
 
-export const alternarBombaAgua = async (encender: boolean): Promise<Record<string, unknown>> => {
-  const respuesta = await ejecutarFetchSeguro("/api/control/bomba", {
-    method: "POST",
-    body: JSON.stringify({ estado: encender }),
-  });
-
-  if (!respuesta.ok) {
-    throw new Error("No autorizado o error de servidor");
-  }
-
-  return (await respuesta.json()) as Record<string, unknown>;
-};
+const mapearRegistroHistorico = (
+  key: string,
+  item: Record<string, unknown>,
+  dispositivoId: string
+): DatosTelemetriaHistorica => ({
+  id: key,
+  id_dispositivo: String(item.id_dispositivo || dispositivoId),
+  temperatura: Number(item.temperatura) || 0,
+  humedad_ambiente: Number(item.humedad_ambiente) || 0,
+  humedad_suelo: Number(item.humedad_suelo) || 0,
+  luz_uv: item.luz_uv !== undefined ? Number(item.luz_uv) : undefined,
+  intensidad_luz_lux:
+    item.intensidad_luz_lux !== undefined ? Number(item.intensidad_luz_lux) : undefined,
+  estado_bomba: typeof item.estado_bomba === "boolean" ? item.estado_bomba : undefined,
+  indice_calor: item.indice_calor !== undefined ? Number(item.indice_calor) : undefined,
+  voltaje_bateria: item.voltaje_bateria !== undefined ? Number(item.voltaje_bateria) : undefined,
+  creado_en: String(item.timestamp || item.creado_en || new Date().toISOString()),
+  origen_dato: "Firebase Realtime",
+});
 
 export const obtenerHistorialDesdeFirebase = async (
-  dispositivoId: string = "invernadero_prueba_01"
+  dispositivoId: string = DISPOSITIVO_ACTIVO
 ): Promise<DatosTelemetriaHistorica[]> => {
   try {
     const nodoRef = ref(db, `invernadero/${dispositivoId}`);
@@ -83,66 +92,30 @@ export const obtenerHistorialDesdeFirebase = async (
     const val = snapshot.val() as Record<string, unknown>;
     const registros: DatosTelemetriaHistorica[] = [];
 
-    // 1. Revisar buffer de telemetria acumulada
     if (val.buffer_telemetria && typeof val.buffer_telemetria === "object") {
       const buffer = val.buffer_telemetria as Record<string, Record<string, unknown>>;
       for (const [key, item] of Object.entries(buffer)) {
         if (item && typeof item === "object") {
-          registros.push({
-            id: key,
-            id_dispositivo: String(item.id_dispositivo || dispositivoId),
-            temperatura: Number(item.temperatura) || 0,
-            humedad_ambiente: Number(item.humedad_ambiente) || 0,
-            humedad_suelo: Number(item.humedad_suelo) || 0,
-            luz_uv: item.luz_uv !== undefined ? Number(item.luz_uv) : undefined,
-            indice_calor: item.indice_calor !== undefined ? Number(item.indice_calor) : undefined,
-            voltaje_bateria: item.voltaje_bateria !== undefined ? Number(item.voltaje_bateria) : undefined,
-            creado_en: String(item.timestamp || new Date().toISOString()),
-            origen_dato: "Firebase Realtime",
-          });
+          registros.push(mapearRegistroHistorico(key, item, dispositivoId));
         }
       }
     }
 
-    // 2. Revisar historial explicito
     if (val.historial && typeof val.historial === "object") {
       const hist = val.historial as Record<string, Record<string, unknown>>;
       for (const [key, item] of Object.entries(hist)) {
         if (item && typeof item === "object") {
-          registros.push({
-            id: key,
-            id_dispositivo: String(item.id_dispositivo || dispositivoId),
-            temperatura: Number(item.temperatura) || 0,
-            humedad_ambiente: Number(item.humedad_ambiente) || 0,
-            humedad_suelo: Number(item.humedad_suelo) || 0,
-            luz_uv: item.luz_uv !== undefined ? Number(item.luz_uv) : undefined,
-            indice_calor: item.indice_calor !== undefined ? Number(item.indice_calor) : undefined,
-            voltaje_bateria: item.voltaje_bateria !== undefined ? Number(item.voltaje_bateria) : undefined,
-            creado_en: String(item.timestamp || new Date().toISOString()),
-            origen_dato: "Firebase Realtime",
-          });
+          registros.push(mapearRegistroHistorico(key, item, dispositivoId));
         }
       }
     }
 
-    // 3. Incluir estado actual para garantizar la medicion mas reciente
     if (val.estado_actual && typeof val.estado_actual === "object") {
       const actual = val.estado_actual as Record<string, unknown>;
       const tsActual = String(actual.timestamp || "");
       const yaExiste = registros.some((r) => r.creado_en === tsActual);
       if (!yaExiste && actual.temperatura !== undefined) {
-        registros.push({
-          id: `live-${dispositivoId}`,
-          id_dispositivo: String(actual.id_dispositivo || dispositivoId),
-          temperatura: Number(actual.temperatura) || 0,
-          humedad_ambiente: Number(actual.humedad_ambiente) || 0,
-          humedad_suelo: Number(actual.humedad_suelo) || 0,
-          luz_uv: actual.luz_uv !== undefined ? Number(actual.luz_uv) : undefined,
-          indice_calor: actual.indice_calor !== undefined ? Number(actual.indice_calor) : undefined,
-          voltaje_bateria: actual.voltaje_bateria !== undefined ? Number(actual.voltaje_bateria) : undefined,
-          creado_en: tsActual || new Date().toISOString(),
-          origen_dato: "Firebase Realtime",
-        });
+        registros.push(mapearRegistroHistorico(`live-${dispositivoId}`, actual, dispositivoId));
       }
     }
 
@@ -155,7 +128,7 @@ export const obtenerHistorialDesdeFirebase = async (
 
 export const obtenerDatosGrafica = async (
   limite?: number,
-  dispositivoId: string = "invernadero_prueba_01"
+  dispositivoId: string = DISPOSITIVO_ACTIVO
 ): Promise<DatosTelemetriaHistorica[]> => {
   const ruta = `/api/telemetria/historial/${dispositivoId}${limite ? `?limite=${limite}` : ""}`;
 
@@ -229,14 +202,72 @@ export const resolverAlerta = async (idAlerta: number): Promise<void> => {
   }
 };
 
+export const actualizarCultivoDispositivo = async (
+  dispositivoId: string,
+  cultivo: string
+): Promise<void> => {
+  const respuesta = await ejecutarFetchSeguro(`/api/dispositivos/${dispositivoId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ cultivo }),
+  });
+  if (!respuesta.ok) {
+    throw new Error("No se pudo guardar el cultivo del invernadero");
+  }
+};
+
+export const obtenerCultivosIA = async (): Promise<{
+  cultivo_por_defecto: string;
+  cultivos: CultivoCatalogo[];
+}> => {
+  const respuesta = await ejecutarFetchSeguro("/api/ia/cultivos");
+  if (!respuesta.ok) {
+    throw new Error("No se pudo cargar el catalogo de cultivos");
+  }
+  const data = (await respuesta.json()) as {
+    cultivo_por_defecto?: string;
+    cultivos?: CultivoCatalogo[];
+  };
+  return {
+    cultivo_por_defecto: data.cultivo_por_defecto || "Tomate",
+    cultivos: Array.isArray(data.cultivos) ? data.cultivos : [],
+  };
+};
+
+export const registrarCultivoIA = async (
+  nombre: string
+): Promise<{ cultivo: string; cultivos: CultivoCatalogo[] }> => {
+  const respuesta = await ejecutarFetchSeguro("/api/ia/cultivos", {
+    method: "POST",
+    body: JSON.stringify({ nombre }),
+  });
+  if (!respuesta.ok) {
+    throw new Error("No se pudo agregar el cultivo al selector");
+  }
+  const data = (await respuesta.json()) as {
+    cultivo?: string;
+    cultivos?: CultivoCatalogo[];
+  };
+  return {
+    cultivo: data.cultivo || nombre.trim(),
+    cultivos: Array.isArray(data.cultivos) ? data.cultivos : [],
+  };
+};
+
 export const obtenerDiagnosticoIA = async (
-  dispositivoId: string = "invernadero_prueba_01"
-): Promise<DiagnosticoIA> => {
+  dispositivoId: string = DISPOSITIVO_ACTIVO,
+  cultivo?: string
+): Promise<{ diagnostico: DiagnosticoIA; cultivo: string }> => {
+  const query = cultivo ? `?cultivo=${encodeURIComponent(cultivo)}` : "";
   try {
-    const respuesta = await ejecutarFetchSeguro(`/api/ia/diagnostico/${dispositivoId}`);
+    const respuesta = await ejecutarFetchSeguro(
+      `/api/ia/diagnostico/${dispositivoId}${query}`
+    );
     if (respuesta.ok) {
       const json = (await respuesta.json()) as RespuestaDiagnosticoBackend;
-      return json.diagnostico;
+      return {
+        diagnostico: json.diagnostico,
+        cultivo: json.cultivo || cultivo || "Tomate",
+      };
     }
   } catch {
     // Continuar a lectura de contingencia
@@ -248,9 +279,16 @@ export const obtenerDiagnosticoIA = async (
     if (snap.exists()) {
       const val = snap.val() as Record<string, unknown>;
       return {
-        estado_general: (val.estado_general as DiagnosticoIA["estado_general"]) || "DESCONOCIDO",
-        riesgo_detectado: String(val.riesgo_detectado || "Sin anomalía reportada"),
-        recomendacion_tecnica: String(val.recomendacion_tecnica || "Mantener monitoreo continuo."),
+        diagnostico: {
+          estado_general: (val.estado_general as DiagnosticoIA["estado_general"]) || "DESCONOCIDO",
+          riesgo_detectado: String(val.riesgo_detectado || "Sin anomalía reportada"),
+          recomendacion_tecnica: String(val.recomendacion_tecnica || "Mantener monitoreo continuo."),
+          evaluacion_humedad: val.evaluacion_humedad
+            ? String(val.evaluacion_humedad)
+            : undefined,
+          evaluacion_luz: val.evaluacion_luz ? String(val.evaluacion_luz) : undefined,
+        },
+        cultivo: String(val.cultivo || cultivo || "Tomate"),
       };
     }
   } catch {

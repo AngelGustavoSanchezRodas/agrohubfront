@@ -4,6 +4,7 @@ export interface DispositivoBackend {
   ubicacion?: string | null;
   fecha_instalacion?: string | null;
   estado_conexion?: string;
+  cultivo?: string | null;
   [key: string]: unknown;
 }
 

@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { LineChart, AlertCircle } from "lucide-react";
 import { obtenerDatosGrafica } from "@/services/api";
+import { DISPOSITIVO_ACTIVO } from "@/lib/dispositivos";
 import { etiquetaLectura } from "@/lib/tiempo";
 import { DatosTelemetriaHistorica, MetricasResumen } from "@/types";
 import {
@@ -17,9 +18,8 @@ export default function Analitica() {
   const [datos, setDatos] = useState<DatosTelemetriaHistorica[]>([]);
   const [cargando, setCargando] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [rango, setRango] = useState<"24h" | "7d">("24h");
   const [limite, setLimite] = useState<number>(24);
-  const [dispositivoId] = useState<string>("invernadero_prueba_01");
+  const [dispositivoId] = useState<string>(DISPOSITIVO_ACTIVO);
 
   const consultarHistorial = (cantidad: number) => {
     setCargando(true);
@@ -77,6 +77,7 @@ export default function Analitica() {
         temperatura: Number(d.temperatura) || 0,
         humedad: Number(d.humedad_ambiente) || 0,
         humedad_suelo: Number(d.humedad_suelo) || 0,
+        lux: Number(d.intensidad_luz_lux) || 0,
       };
     });
   }, [datos]);
@@ -121,8 +122,6 @@ export default function Analitica() {
         </div>
 
         <FiltrosToolbar
-          rango={rango}
-          setRango={setRango}
           limite={limite}
           setLimite={setLimite}
           consultarHistorial={consultarHistorial}

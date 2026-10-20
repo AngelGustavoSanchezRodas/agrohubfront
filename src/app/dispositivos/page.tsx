@@ -6,6 +6,7 @@ import { db } from "@/lib/firebase";
 import { Cpu, Search, Filter, RefreshCw, AlertCircle } from "lucide-react";
 import { obtenerDispositivos } from "@/services/api";
 import { fechaLecturaHeltec, lecturaReciente } from "@/lib/tiempo";
+import { DISPOSITIVO_ACTIVO, esNodoObsoleto } from "@/lib/dispositivos";
 import { DispositivoBackend, DispositivoConsolidado, NodoFirebase } from "@/types";
 import {
   MetricasDispositivos,
@@ -68,6 +69,9 @@ export default function Dispositivos() {
     const mapa = new Map<string, DispositivoConsolidado>();
 
     for (const d of dispositivosBackend) {
+      if (esNodoObsoleto(d.id_dispositivo)) {
+        continue;
+      }
       mapa.set(d.id_dispositivo, {
         id: d.id_dispositivo,
         nombre: d.nombre || d.id_dispositivo,
@@ -81,6 +85,9 @@ export default function Dispositivos() {
     }
 
     for (const [id, nodo] of Object.entries(nodosFirebase)) {
+      if (esNodoObsoleto(id)) {
+        continue;
+      }
       const estadoActual = nodo.estado_actual;
       const tienePulso = !!estadoActual?.timestamp;
       let timestampFormateado = "Sin telemetría";
@@ -121,7 +128,11 @@ export default function Dispositivos() {
       }
     }
 
-    return Array.from(mapa.values());
+    return Array.from(mapa.values()).sort((a, b) => {
+      if (a.id === DISPOSITIVO_ACTIVO) return -1;
+      if (b.id === DISPOSITIVO_ACTIVO) return 1;
+      return a.id.localeCompare(b.id);
+    });
   }, [dispositivosBackend, nodosFirebase]);
 
   const dispositivosFiltrados = useMemo(() => {

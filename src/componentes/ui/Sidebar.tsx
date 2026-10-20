@@ -8,8 +8,10 @@ import {
   LineChart,
   Cpu,
   Bell,
+  Brain,
   Sprout,
 } from "lucide-react";
+import { DISPOSITIVO_ACTIVO } from "@/lib/dispositivos";
 import { verificarEstadoBackend } from "@/services/api";
 
 interface ElementoNavegacion {
@@ -41,8 +43,14 @@ const elementosNavegacion: ElementoNavegacion[] = [
   {
     nombre: "Diagnósticos IA",
     ruta: "/alertas",
+    icono: Brain,
+    descripcion: "Diagnóstico por cultivo",
+  },
+  {
+    nombre: "Alertas",
+    ruta: "/alertas-sistema",
     icono: Bell,
-    descripcion: "Asistente agronómico",
+    descripcion: "Umbrales del sistema",
   },
 ];
 
@@ -148,7 +156,7 @@ export function Sidebar() {
             V3
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-medium text-white">invernadero_prueba_01</span>
+            <span className="text-sm font-medium text-white">{DISPOSITIVO_ACTIVO}</span>
             <span className="text-xs text-gray-500">Heltec WiFi LoRa 32 V3</span>
           </div>
         </div>

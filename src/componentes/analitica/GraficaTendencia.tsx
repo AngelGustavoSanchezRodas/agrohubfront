@@ -14,6 +14,7 @@ export interface PuntoGrafica {
   temperatura: number;
   humedad: number;
   humedad_suelo: number;
+  lux: number;
 }
 
 interface GraficaTendenciaProps {
@@ -42,6 +43,10 @@ export function GraficaTendencia({ datosGrafica, cargando }: GraficaTendenciaPro
             <span className="w-3 h-3 rounded-full bg-agro-green inline-block"></span>
             Sustrato (%)
           </span>
+          <span className="flex items-center gap-1.5 text-amber-300 font-medium">
+            <span className="w-3 h-3 rounded-full bg-amber-300 inline-block"></span>
+            Luz (lx)
+          </span>
         </div>
       </div>
 
@@ -66,7 +71,7 @@ export function GraficaTendencia({ datosGrafica, cargando }: GraficaTendenciaPro
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
               data={datosGrafica}
-              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              margin={{ top: 10, right: 18, left: -20, bottom: 0 }}
             >
               <defs>
                 <linearGradient id="colorTemp" x1="0" y1="0" x2="0" y2="1">
@@ -81,6 +86,10 @@ export function GraficaTendencia({ datosGrafica, cargando }: GraficaTendenciaPro
                   <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
                   <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                 </linearGradient>
+                <linearGradient id="colorLux" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#fbbf24" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#fbbf24" stopOpacity={0} />
+                </linearGradient>
               </defs>
 
               <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
@@ -92,10 +101,20 @@ export function GraficaTendencia({ datosGrafica, cargando }: GraficaTendenciaPro
                 axisLine={false}
               />
               <YAxis
+                yAxisId="pct"
                 stroke="#64748b"
                 tick={{ fontSize: 12, fill: "#94a3b8" }}
                 tickLine={false}
                 axisLine={false}
+              />
+              <YAxis
+                yAxisId="lux"
+                orientation="right"
+                stroke="#64748b"
+                tick={{ fontSize: 12, fill: "#94a3b8" }}
+                tickLine={false}
+                axisLine={false}
+                width={42}
               />
               <Tooltip
                 contentStyle={{
@@ -114,6 +133,7 @@ export function GraficaTendencia({ datosGrafica, cargando }: GraficaTendenciaPro
               />
 
               <Area
+                yAxisId="pct"
                 type="monotone"
                 dataKey="temperatura"
                 stroke="#f59e0b"
@@ -123,6 +143,7 @@ export function GraficaTendencia({ datosGrafica, cargando }: GraficaTendenciaPro
                 name="Temp (°C)"
               />
               <Area
+                yAxisId="pct"
                 type="monotone"
                 dataKey="humedad"
                 stroke="#3b82f6"
@@ -132,6 +153,7 @@ export function GraficaTendencia({ datosGrafica, cargando }: GraficaTendenciaPro
                 name="Humedad Amb. (%)"
               />
               <Area
+                yAxisId="pct"
                 type="monotone"
                 dataKey="humedad_suelo"
                 stroke="#10b981"
@@ -139,6 +161,16 @@ export function GraficaTendencia({ datosGrafica, cargando }: GraficaTendenciaPro
                 fill="url(#colorSuelo)"
                 strokeWidth={2}
                 name="Humedad Suelo (%)"
+              />
+              <Area
+                yAxisId="lux"
+                type="monotone"
+                dataKey="lux"
+                stroke="#fbbf24"
+                fillOpacity={1}
+                fill="url(#colorLux)"
+                strokeWidth={2}
+                name="Luz (lx)"
               />
             </AreaChart>
           </ResponsiveContainer>

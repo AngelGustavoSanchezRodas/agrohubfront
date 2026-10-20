@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import { onValue, ref } from "firebase/database";
 import { db } from "@/lib/firebase";
+import { DISPOSITIVO_ACTIVO } from "@/lib/dispositivos";
 import { lecturaReciente } from "@/lib/tiempo";
 
 export function EstadoRecepcion() {
   const [recibiendo, setRecibiendo] = useState(false);
 
   useEffect(() => {
-    const nodo = ref(db, "invernadero/invernadero_prueba_01/estado_actual");
+    const nodo = ref(db, `invernadero/${DISPOSITIVO_ACTIVO}/estado_actual`);
     const unsubscribe = onValue(nodo, (snapshot) => {
       const timestamp = snapshot.exists()
         ? String(snapshot.val()?.timestamp || "")

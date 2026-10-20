@@ -6,6 +6,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Legend,
 } from "recharts";
 import { LineChart as LineChartIcon, RefreshCw } from "lucide-react";
 import { DatosTelemetriaHistorica } from "@/types";
@@ -29,6 +30,8 @@ export function GraficaReciente({ historial, cargando }: GraficaRecienteProps) {
       tiempo: tiempo || "--:--",
       temperatura: Number(d.temperatura) || 0,
       humedad: Number(d.humedad_ambiente) || 0,
+      humedad_suelo: Number(d.humedad_suelo) || 0,
+      lux: Number(d.intensidad_luz_lux) || 0,
     };
   });
 
@@ -60,7 +63,7 @@ export function GraficaReciente({ historial, cargando }: GraficaRecienteProps) {
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={datosGrafica} margin={{ top: 5, right: 10, left: -25, bottom: 0 }}>
+            <AreaChart data={datosGrafica} margin={{ top: 5, right: 18, left: -18, bottom: 0 }}>
               <defs>
                 <linearGradient id="dashTemp" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
@@ -70,10 +73,33 @@ export function GraficaReciente({ historial, cargando }: GraficaRecienteProps) {
                   <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
                   <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                 </linearGradient>
+                <linearGradient id="dashSuelo" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="dashLux" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#fbbf24" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#fbbf24" stopOpacity={0} />
+                </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
               <XAxis dataKey="tiempo" stroke="#64748b" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-              <YAxis stroke="#64748b" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+              <YAxis
+                yAxisId="pct"
+                stroke="#64748b"
+                tick={{ fontSize: 11, fill: "#94a3b8" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                yAxisId="lux"
+                orientation="right"
+                stroke="#64748b"
+                tick={{ fontSize: 11, fill: "#94a3b8" }}
+                axisLine={false}
+                tickLine={false}
+                width={42}
+              />
               <Tooltip
                 contentStyle={{
                   backgroundColor: "#0f172a",
@@ -83,8 +109,11 @@ export function GraficaReciente({ historial, cargando }: GraficaRecienteProps) {
                   fontSize: "12px",
                 }}
               />
-              <Area type="monotone" dataKey="temperatura" stroke="#f59e0b" fillOpacity={1} fill="url(#dashTemp)" strokeWidth={2} name="Temp (°C)" />
-              <Area type="monotone" dataKey="humedad" stroke="#3b82f6" fillOpacity={1} fill="url(#dashHum)" strokeWidth={2} name="Humedad (%)" />
+              <Legend wrapperStyle={{ fontSize: "11px", color: "#94a3b8" }} />
+              <Area yAxisId="pct" type="monotone" dataKey="temperatura" stroke="#f59e0b" fillOpacity={1} fill="url(#dashTemp)" strokeWidth={2} name="Temp (°C)" />
+              <Area yAxisId="pct" type="monotone" dataKey="humedad" stroke="#3b82f6" fillOpacity={1} fill="url(#dashHum)" strokeWidth={2} name="Humedad (%)" />
+              <Area yAxisId="pct" type="monotone" dataKey="humedad_suelo" stroke="#10b981" fillOpacity={1} fill="url(#dashSuelo)" strokeWidth={2} name="Sustrato (%)" />
+              <Area yAxisId="lux" type="monotone" dataKey="lux" stroke="#fbbf24" fillOpacity={1} fill="url(#dashLux)" strokeWidth={2} name="Luz (lx)" />
             </AreaChart>
           </ResponsiveContainer>
         )}

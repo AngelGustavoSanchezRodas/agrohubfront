@@ -5,6 +5,7 @@ import { ref, onValue } from "firebase/database";
 import { db } from "@/lib/firebase";
 import { Thermometer, Droplets, Leaf, Sun } from "lucide-react";
 import { obtenerDatosGrafica } from "@/services/api";
+import { DISPOSITIVO_ACTIVO } from "@/lib/dispositivos";
 import { horaLecturaHeltec } from "@/lib/tiempo";
 import { TelemetriaEnVivo, DatosTelemetriaHistorica } from "@/types";
 import {
@@ -22,7 +23,7 @@ const LECTURA_VACIA: TelemetriaEnVivo = {
 };
 
 export default function Dashboard() {
-  const [dispositivoActual] = useState<string>("invernadero_prueba_01");
+  const [dispositivoActual] = useState<string>(DISPOSITIVO_ACTIVO);
   const [datos, setDatos] = useState<TelemetriaEnVivo>(LECTURA_VACIA);
   const [historial, setHistorial] = useState<DatosTelemetriaHistorica[]>([]);
   const [cargandoGrafica, setCargandoGrafica] = useState<boolean>(true);
