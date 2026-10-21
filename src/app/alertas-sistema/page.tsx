@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { Bell } from "lucide-react";
@@ -62,8 +62,7 @@ export default function AlertasSistema() {
           Alertas del sistema
         </h2>
         <p className="text-gray-400 text-sm mt-1">
-          Señales automáticas por umbrales del Heltec (suelo, calor, luz diurna, hongos). El
-          diagnóstico por cultivo está en Diagnósticos IA.
+          Monitoreo continuo de condiciones críticas: humedad del sustrato, estrés térmico y prevención de hongos.
         </p>
       </div>
 
@@ -78,7 +77,7 @@ export default function AlertasSistema() {
           <p className="text-sm text-gray-400">Consultando alertas...</p>
         ) : error && alertasSistema.length === 0 ? null : alertasSistema.length === 0 ? (
           <p className="text-sm text-gray-400">
-            No hay alertas de umbral para la estación {DISPOSITIVO_ACTIVO}.
+            No se registran alertas activas de riesgo para el cultivo.
           </p>
         ) : (
           alertasSistema.map((alerta) => (

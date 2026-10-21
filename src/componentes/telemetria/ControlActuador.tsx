@@ -1,4 +1,4 @@
-import { Activity, Waves } from "lucide-react";
+﻿import { Activity, Droplets, CheckCircle2 } from "lucide-react";
 
 interface ControlActuadorProps {
   estadoBomba: boolean;
@@ -8,34 +8,43 @@ interface ControlActuadorProps {
 
 export function ControlActuador({ estadoBomba }: ControlActuadorProps) {
   return (
-    <div className="bg-agro-dark border border-agro-border rounded-xl p-6 flex flex-col justify-between">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-gray-400 font-medium tracking-wide text-xs uppercase">
-          Sistema de Riego
-        </span>
-        <Waves className={estadoBomba ? "text-agro-green w-5 h-5 animate-pulse" : "text-gray-600 w-5 h-5"} />
-      </div>
-
-      <div className="my-2">
+    <div className="bg-agro-dark/80 backdrop-blur-sm border border-agro-border hover:border-slate-700 rounded-2xl p-4 sm:p-5 flex flex-col justify-between transition-all duration-200 shadow-sm">
+      <div className="flex items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-2">
-          <span
-            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tracking-wider border ${
-              estadoBomba
-                ? "bg-agro-green/10 text-agro-green border-agro-green/30"
-                : "bg-gray-800 text-gray-400 border-gray-700"
-            }`}
-          >
-            <Activity className="w-3.5 h-3.5" />
-            {estadoBomba ? "IRRIGACIÓN ACTIVA" : "EN ESPERA"}
+          <Droplets className="w-4 h-4 text-agro-green" />
+          <span className="text-gray-400 font-semibold tracking-wider text-[11px] uppercase">
+            Sistema de Riego
           </span>
         </div>
+        <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-slate-950 border border-agro-border text-gray-400 font-medium">
+          Modo Automático
+        </span>
       </div>
 
-      <span className="text-[11px] text-gray-500 mt-2 block">
-        {estadoBomba
-          ? "El Heltec reporta la bomba encendida"
-          : "El Heltec reporta la bomba apagada"}
-      </span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 my-2">
+        <div className="flex items-center gap-2">
+          <span
+            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold tracking-wide border transition-all ${
+              estadoBomba
+                ? "bg-agro-green/15 text-agro-green border-agro-green/40 shadow-sm shadow-agro-green/20"
+                : "bg-slate-950/80 text-gray-400 border-agro-border"
+            }`}
+          >
+            {estadoBomba ? (
+              <Activity className="w-3.5 h-3.5 animate-spin text-agro-green" />
+            ) : (
+              <CheckCircle2 className="w-3.5 h-3.5 text-gray-500" />
+            )}
+            {estadoBomba ? "RIEGO EN CURSO" : "RIEGO EN ESPERA"}
+          </span>
+        </div>
+
+        <p className="text-xs text-gray-400 sm:text-right">
+          {estadoBomba
+            ? "Suministrando agua al sustrato para restablecer la hidratación óptima."
+            : "Humedad del sustrato dentro de los parámetros adecuados para el cultivo."}
+        </p>
+      </div>
     </div>
   );
 }

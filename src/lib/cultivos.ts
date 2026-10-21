@@ -1,4 +1,4 @@
-export const CULTIVO_POR_DEFECTO = "Tomate";
+﻿export const CULTIVO_POR_DEFECTO = "Tomate";
 
 export const CULTIVOS_DISPONIBLES = [
   "Tomate",
@@ -11,14 +11,12 @@ export const CULTIVOS_DISPONIBLES = [
 
 export type CultivoId = (typeof CULTIVOS_DISPONIBLES)[number];
 
-/** Tipos generados por umbrales del backend (no por texto libre de Gemini). */
+/** Tipos de alertas automáticas generadas por umbrales agronómicos reales. */
 export const TIPOS_ALERTA_SISTEMA = new Set([
   "ESTRES_HIDRICO",
   "GOLPE_CALOR",
   "RIESGO_HELADA",
   "PROLIFERACION_HONGOS",
-  "LUZ_INSUFICIENTE",
-  "BATERIA_BAJA",
 ]);
 
 export function esAlertaSistema(tipoRiesgo: string): boolean {

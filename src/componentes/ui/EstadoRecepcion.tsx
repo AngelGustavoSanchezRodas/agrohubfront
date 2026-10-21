@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { onValue, ref } from "firebase/database";
@@ -21,13 +21,15 @@ export function EstadoRecepcion() {
   }, []);
 
   return (
-    <span className="flex items-center gap-2">
+    <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/80 border border-agro-border text-xs font-medium">
       <span
         className={`w-2 h-2 rounded-full ${
-          recibiendo ? "bg-agro-green" : "bg-amber-400"
+          recibiendo ? "bg-agro-green animate-pulse" : "bg-amber-400"
         }`}
-      ></span>
-      {recibiendo ? "Recepción activa" : "Sin recepción"}
-    </span>
+      />
+      <span className={recibiendo ? "text-agro-green" : "text-amber-400"}>
+        {recibiendo ? "En línea" : "Sin conexión"}
+      </span>
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useMemo } from "react";
 import { ref, onValue } from "firebase/database";
@@ -166,7 +166,7 @@ export default function Dispositivos() {
         <button
           onClick={sincronizarDispositivos}
           disabled={cargando}
-          className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-gray-200 px-4 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-colors disabled:opacity-50 cursor-pointer self-start sm:self-auto"
+          className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-gray-200 px-4 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-wider transition-colors disabled:opacity-50 cursor-pointer w-full sm:w-auto"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${cargando ? "animate-spin text-agro-green" : ""}`} />
           <span>Sincronizar</span>
@@ -197,13 +197,13 @@ export default function Dispositivos() {
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar por nombre o ubicación..."
-            className="w-full bg-slate-950 border border-agro-border rounded-xl pl-10 pr-4 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-agro-green"
+            className="w-full bg-slate-950 border border-agro-border rounded-xl pl-10 pr-4 py-2.5 text-base sm:text-xs text-white placeholder-gray-500 focus:outline-none focus:border-agro-green"
           />
         </div>
 
         <div className="flex items-center gap-2 self-stretch sm:self-auto">
           <Filter className="w-4 h-4 text-gray-400 shrink-0" />
-          <div className="flex items-center bg-slate-950 border border-agro-border rounded-xl p-1 text-xs">
+          <div className="flex items-center justify-between w-full sm:w-auto bg-slate-950 border border-agro-border rounded-xl p-1 text-xs">
             {(["TODOS", "ONLINE", "OFFLINE"] as const).map((estado) => (
               <button
                 key={estado}

@@ -1,6 +1,5 @@
-"use client";
+﻿"use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -12,7 +11,6 @@ import {
   Sprout,
 } from "lucide-react";
 import { DISPOSITIVO_ACTIVO } from "@/lib/dispositivos";
-import { verificarEstadoBackend } from "@/services/api";
 
 interface ElementoNavegacion {
   nombre: string;
@@ -38,31 +36,24 @@ const elementosNavegacion: ElementoNavegacion[] = [
     nombre: "Estaciones",
     ruta: "/dispositivos",
     icono: Cpu,
-    descripcion: "Monitoreo en campo",
+    descripcion: "Nodos y sectores de cultivo",
   },
   {
     nombre: "Diagnósticos IA",
     ruta: "/alertas",
     icono: Brain,
-    descripcion: "Diagnóstico por cultivo",
+    descripcion: "Diagnóstico agronómico",
   },
   {
     nombre: "Alertas",
     ruta: "/alertas-sistema",
     icono: Bell,
-    descripcion: "Umbrales del sistema",
+    descripcion: "Umbrales y anomalías activas",
   },
 ];
 
 export function Sidebar() {
   const rutaActual = usePathname();
-  const [sistemaOperativo, setSistemaOperativo] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    verificarEstadoBackend().then((res) => {
-      setSistemaOperativo(res.status === "ok");
-    });
-  }, []);
 
   return (
     <aside className="w-64 border-r border-agro-border bg-agro-dark h-screen flex flex-col justify-between hidden md:flex shrink-0">
@@ -89,8 +80,8 @@ export function Sidebar() {
                   href={item.ruta}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors font-medium text-sm group ${
                     esActivo
-                      ? "bg-black text-agro-orange border border-agro-orange/40 font-semibold"
-                      : "text-gray-400 hover:text-white hover:bg-black/40"
+                      ? "bg-slate-900 text-agro-orange border border-agro-orange/40 font-semibold shadow-sm"
+                      : "text-gray-400 hover:text-white hover:bg-slate-900/40"
                   }`}
                 >
                   <Icono
@@ -111,53 +102,21 @@ export function Sidebar() {
             })}
           </nav>
         </div>
-
-        {/* Estado Operativo General */}
-        <div className="border-t border-agro-border pt-4 px-3">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 px-3">
-            Estado del Sistema
-          </span>
-          <div className="mt-2 bg-black/50 border border-agro-border rounded-xl p-3 flex items-center justify-between text-xs">
-            <span className="text-gray-400 flex items-center gap-2">
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  sistemaOperativo === null
-                    ? "bg-gray-500"
-                    : sistemaOperativo
-                      ? "bg-agro-green"
-                      : "bg-amber-400"
-                }`}
-              ></span>
-              Plataforma
-            </span>
-            <span
-              className={`font-semibold ${
-                sistemaOperativo === null
-                  ? "text-gray-400"
-                  : sistemaOperativo
-                    ? "text-agro-green"
-                    : "text-amber-400"
-              }`}
-            >
-              {sistemaOperativo === null
-                ? "Comprobando"
-                : sistemaOperativo
-                  ? "Operativa"
-                  : "Intermitente"}
-            </span>
-          </div>
-        </div>
       </div>
 
-      {/* Footer del Sidebar con perfil de operador */}
+      {/* Identificador del Invernadero y Sector */}
       <div className="p-4 border-t border-agro-border">
-        <div className="flex items-center px-2 py-1">
-          <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white mr-3">
-            V3
+        <div className="flex items-center px-3 py-2 bg-slate-950/60 rounded-xl border border-agro-border/60">
+          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-agro-green mr-3 border border-emerald-500/20 shrink-0">
+            <Sprout className="w-4 h-4 text-agro-green" />
           </div>
-          <div className="flex flex-col">
-            <span className="text-sm font-medium text-white">{DISPOSITIVO_ACTIVO}</span>
-            <span className="text-xs text-gray-500">Heltec WiFi LoRa 32 V3</span>
+          <div className="flex flex-col truncate">
+            <span className="text-xs font-semibold text-white truncate">
+              Invernadero Principal
+            </span>
+            <span className="text-[11px] text-gray-400 truncate">
+              Sector de cultivo activo
+            </span>
           </div>
         </div>
       </div>

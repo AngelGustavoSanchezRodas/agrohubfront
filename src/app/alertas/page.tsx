@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { Brain, Loader2, Activity, Leaf, Plus } from "lucide-react";
@@ -135,7 +135,7 @@ export default function DiagnosticosIA() {
           <button
             onClick={solicitarAnalisis}
             disabled={cargando || !cultivo}
-            className="flex items-center justify-center gap-2 px-6 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-medium rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-xs sm:text-sm self-start"
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-medium rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-xs sm:text-sm w-full sm:w-auto"
           >
             {cargando ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -160,7 +160,7 @@ export default function DiagnosticosIA() {
                 setError(null);
                 setAviso(null);
               }}
-              className="bg-slate-950 border border-agro-border rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-agro-green"
+              className="bg-slate-950 border border-agro-border rounded-xl px-4 py-2.5 text-base sm:text-sm text-white focus:outline-none focus:border-agro-green w-full"
             >
               {opcionesCultivo.map((opcion) => (
                 <option key={opcion} value={opcion}>
@@ -177,7 +177,7 @@ export default function DiagnosticosIA() {
               setError(null);
               setAviso(null);
             }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-agro-border text-xs font-medium text-gray-300 hover:text-white hover:border-agro-green/50 transition-colors cursor-pointer self-start sm:self-auto"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-agro-border text-xs font-medium text-gray-300 hover:text-white hover:border-agro-green/50 transition-colors cursor-pointer w-full sm:w-auto"
           >
             <Plus className="w-4 h-4 text-agro-green" />
             Agregar cultivo
@@ -200,7 +200,7 @@ export default function DiagnosticosIA() {
                   }
                 }}
                 placeholder="Ej. Hierbabuena, Cilantro, Chile..."
-                className="flex-1 bg-agro-dark border border-agro-border rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-agro-green"
+                className="flex-1 bg-agro-dark border border-agro-border rounded-xl px-4 py-2.5 text-base sm:text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-agro-green"
               />
               <button
                 type="button"
@@ -234,13 +234,12 @@ export default function DiagnosticosIA() {
             riesgoDetectado={diagnostico.riesgo_detectado}
             recomendacionTecnica={diagnostico.recomendacion_tecnica}
             evaluacionHumedad={diagnostico.evaluacion_humedad}
-            evaluacionLuz={diagnostico.evaluacion_luz}
+            evaluacionTemperatura={diagnostico.evaluacion_temperatura}
           />
         </div>
       ) : (
         <p className="text-sm text-gray-500">
-          Elige o agrega un cultivo y genera el diagnóstico. El resultado mostrará humedad, luz y
-          recomendaciones.
+          Elige o agrega un cultivo y genera el diagnóstico. El resultado mostrará balance hídrico, condición térmica y recomendaciones agronómicas.
         </p>
       )}
     </div>

@@ -1,10 +1,11 @@
-export type EstadoSeveridadIA = "OPTIMO" | "ADVERTENCIA" | "CRITICO" | "DESCONOCIDO";
+﻿export type EstadoSeveridadIA = "OPTIMO" | "ADVERTENCIA" | "CRITICO" | "DESCONOCIDO";
 
 export interface DiagnosticoIA {
   estado_general: EstadoSeveridadIA;
   riesgo_detectado: string;
   recomendacion_tecnica: string;
   evaluacion_humedad?: string;
+  evaluacion_temperatura?: string;
   evaluacion_luz?: string;
 }
 

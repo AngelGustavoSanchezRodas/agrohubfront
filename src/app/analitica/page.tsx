@@ -72,12 +72,15 @@ export default function Analitica() {
           minute: "2-digit",
         });
       }
+      const temp = Number(d.temperatura) || 0;
+      const indice = d.indice_calor !== undefined && d.indice_calor !== null ? Number(d.indice_calor) : temp;
+
       return {
         tiempo: etiquetaTiempo || "--:--",
-        temperatura: Number(d.temperatura) || 0,
+        temperatura: temp,
         humedad: Number(d.humedad_ambiente) || 0,
         humedad_suelo: Number(d.humedad_suelo) || 0,
-        lux: Number(d.intensidad_luz_lux) || 0,
+        indice_calor: indice,
       };
     });
   }, [datos]);
@@ -90,12 +93,14 @@ export default function Analitica() {
         tempMin: "--",
         humAmbPromedio: "--",
         humSueloPromedio: "--",
+        indiceCalorPromedio: "--",
       };
     }
 
     const temps = datos.map((d) => Number(d.temperatura) || 0);
     const humAmb = datos.map((d) => Number(d.humedad_ambiente) || 0);
     const humSuelo = datos.map((d) => Number(d.humedad_suelo) || 0);
+    const indicesCalor = datos.map((d) => (d.indice_calor !== undefined && d.indice_calor !== null ? Number(d.indice_calor) : Number(d.temperatura) || 0));
     const sum = (arr: number[]) => arr.reduce((a, b) => a + b, 0);
 
     return {
@@ -104,23 +109,25 @@ export default function Analitica() {
       tempMin: Math.min(...temps).toFixed(1),
       humAmbPromedio: (sum(humAmb) / humAmb.length).toFixed(1),
       humSueloPromedio: (sum(humSuelo) / humSuelo.length).toFixed(1),
+      indiceCalorPromedio: (sum(indicesCalor) / indicesCalor.length).toFixed(1),
     };
   }, [datos]);
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
       {/* Cabecera y controles de filtro temporal */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-agro-border/60">
         <div>
-          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-            <LineChart className="w-6 h-6 text-agro-green" />
+          <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2 tracking-tight">
+            <LineChart className="w-5 h-5 sm:w-6 sm:h-6 text-agro-green" />
             Análisis Histórico del Cultivo
           </h2>
-          <p className="text-gray-400 text-sm mt-1">
+          <p className="text-gray-400 text-xs sm:text-sm mt-0.5">
             Evolución temporal de variables climáticas y niveles de humedad en suelo.
           </p>
         </div>
 
+        {/* Barra de herramientas para rangos */}
         <FiltrosToolbar
           limite={limite}
           setLimite={setLimite}
@@ -129,23 +136,21 @@ export default function Analitica() {
         />
       </div>
 
-      {/* Alerta de error si aplica */}
+      {/* Alerta de error si falla la consulta */}
       {error && (
-        <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0" />
+        <div className="p-4 rounded-xl bg-red-950/40 border border-red-500/40 text-red-300 text-xs sm:text-sm flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
-      {/* Tarjetas resumen de metricas */}
-      <MetricasCards
-        metricas={metricas}
-        totalMuestras={datos.length}
-      />
+      {/* Tarjetas de Metricas Clave */}
+      <MetricasCards metricas={metricas} totalMuestras={datos.length} />
 
-      {/* Gráfico de Área Recharts */}
+      {/* Grafica de Evolucion Cronologica */}
       <GraficaTendencia datosGrafica={datosGrafica} cargando={cargando} />
 
+      {/* Tabla Detallada de Lecturas */}
       <TablaTelemetria datos={datos} cargando={cargando} />
     </div>
   );
