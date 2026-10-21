@@ -9,7 +9,13 @@ import {
   registrarCultivoIA,
   actualizarCultivoDispositivo,
 } from "@/services/api";
-import { CULTIVO_POR_DEFECTO, CULTIVOS_DISPONIBLES } from "@/lib/cultivos";
+import {
+  CULTIVO_POR_DEFECTO,
+  CULTIVOS_DISPONIBLES,
+  limpiarListaCultivos,
+  esNombreCultivoValido,
+  formatearNombreCultivo,
+} from "@/lib/cultivos";
 import { DISPOSITIVO_ACTIVO } from "@/lib/dispositivos";
 import { DiagnosticoIA } from "@/types";
 import { TarjetaSeveridad, DetalleDiagnostico } from "@/componentes/alertas";
@@ -29,8 +35,9 @@ export default function DiagnosticosIA() {
   const cargarCultivos = async () => {
     try {
       const data = await obtenerCultivosIA();
-      const ids = data.cultivos.map((c) => c.id);
-      setOpcionesCultivo(ids.length > 0 ? ids : [...CULTIVOS_DISPONIBLES]);
+      const ids = (data.cultivos || []).map((c) => c.id);
+      const filtrados = limpiarListaCultivos(ids.length > 0 ? ids : [...CULTIVOS_DISPONIBLES]);
+      setOpcionesCultivo(filtrados.length > 0 ? filtrados : [...CULTIVOS_DISPONIBLES]);
     } catch {
       setOpcionesCultivo([...CULTIVOS_DISPONIBLES]);
     }
@@ -41,14 +48,10 @@ export default function DiagnosticosIA() {
     obtenerDispositivos()
       .then((lista) => {
         const actual = lista.find((d) => d.id_dispositivo === DISPOSITIVO_ACTIVO);
-        if (actual?.cultivo) {
-          const nombre = String(actual.cultivo);
+        if (actual?.cultivo && esNombreCultivoValido(actual.cultivo)) {
+          const nombre = formatearNombreCultivo(String(actual.cultivo));
           setCultivo(nombre);
-          setOpcionesCultivo((prev) =>
-            prev.some((c) => c.toLowerCase() === nombre.toLowerCase())
-              ? prev
-              : [...prev, nombre]
-          );
+          setOpcionesCultivo((prev) => limpiarListaCultivos([...prev, nombre]));
         }
       })
       .catch(() => {
@@ -58,22 +61,24 @@ export default function DiagnosticosIA() {
 
   const agregarCultivo = async () => {
     const nombre = nuevoCultivo.trim();
-    if (nombre.length < 2) {
-      setError("Escribe un nombre de cultivo o planta (mínimo 2 caracteres).");
+    if (!esNombreCultivoValido(nombre)) {
+      setError("Ingresa un nombre agronómico válido (ej: Hierbabuena, Cilantro, Chile). Mínimo 3 caracteres.");
       return;
     }
 
+    const nombreFormateado = formatearNombreCultivo(nombre);
     setGuardandoCultivo(true);
     setError(null);
     setAviso(null);
     try {
-      const data = await registrarCultivoIA(nombre);
-      const ids = data.cultivos.map((c) => c.id);
-      setOpcionesCultivo(ids.length > 0 ? ids : [...opcionesCultivo, data.cultivo]);
-      setCultivo(data.cultivo);
+      const data = await registrarCultivoIA(nombreFormateado);
+      const ids = (data.cultivos || []).map((c) => c.id);
+      const listaLimpia = limpiarListaCultivos([...ids, data.cultivo]);
+      setOpcionesCultivo(listaLimpia);
+      setCultivo(formatearNombreCultivo(data.cultivo));
       setNuevoCultivo("");
       setMostrarFormulario(false);
-      setAviso(`"${data.cultivo}" ya está disponible en el selector.`);
+      setAviso(`"${formatearNombreCultivo(data.cultivo)}" ya está disponible en el selector.`);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "No se pudo agregar el cultivo."
@@ -84,25 +89,21 @@ export default function DiagnosticosIA() {
   };
 
   const solicitarAnalisis = async () => {
+    const cultivoEfectivo = esNombreCultivoValido(cultivo)
+      ? formatearNombreCultivo(cultivo)
+      : CULTIVO_POR_DEFECTO;
+
     setCargando(true);
     setError(null);
     setAviso(null);
     setDiagnostico(null);
     try {
       try {
-        await actualizarCultivoDispositivo(DISPOSITIVO_ACTIVO, cultivo);
+        await actualizarCultivoDispositivo(DISPOSITIVO_ACTIVO, cultivoEfectivo);
       } catch {
         // El diagnostico igual puede usar el query param
       }
-      const resultado = await obtenerDiagnosticoIA(DISPOSITIVO_ACTIVO, cultivo);
-      if (
-        cultivo &&
-        resultado.cultivo.toLowerCase() !== cultivo.toLowerCase()
-      ) {
-        throw new Error(
-          `Se pidió diagnóstico de ${cultivo}, pero la API devolvió ${resultado.cultivo}. Revisa que el backend desplegado esté actualizado.`
-        );
-      }
+      const resultado = await obtenerDiagnosticoIA(DISPOSITIVO_ACTIVO, cultivoEfectivo);
       setDiagnostico(resultado.diagnostico);
       setCultivoDiagnostico(resultado.cultivo);
     } catch (err) {
@@ -123,8 +124,8 @@ export default function DiagnosticosIA() {
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-              <Brain className="w-6 h-6 text-purple-400" />
-              Diagnóstico con IA
+              <Brain className="w-6 h-6 text-purple-400 shrink-0" />
+              <span>Diagnóstico con IA</span>
             </h2>
             <p className="text-gray-400 text-sm mt-1">
               Elige o agrega el cultivo del invernadero. La IA compara las lecturas con ese perfil y
@@ -135,7 +136,7 @@ export default function DiagnosticosIA() {
           <button
             onClick={solicitarAnalisis}
             disabled={cargando || !cultivo}
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-medium rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-xs sm:text-sm w-full sm:w-auto"
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-medium rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer text-xs sm:text-sm w-full sm:w-auto shrink-0"
           >
             {cargando ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -239,7 +240,8 @@ export default function DiagnosticosIA() {
         </div>
       ) : (
         <p className="text-sm text-gray-500">
-          Elige o agrega un cultivo y genera el diagnóstico. El resultado mostrará balance hídrico, condición térmica y recomendaciones agronómicas.
+          Elige o agrega un cultivo y genera el diagnóstico. El resultado mostrará balance hídrico,
+          condición térmica y recomendaciones agronómicas.
         </p>
       )}
     </div>
