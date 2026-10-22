@@ -1,5 +1,6 @@
-﻿import type { Metadata, Viewport } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { Sidebar } from "@/componentes/ui/Sidebar";
 import { MobileNav } from "@/componentes/ui/MobileNav";
 import { EstadoRecepcion } from "@/componentes/ui/EstadoRecepcion";
@@ -94,6 +95,9 @@ export default function RootLayout({
 
         {/* Barra de Navegación Inferior para Dispositivos Móviles y Tablets */}
         <MobileNav />
+
+        {/* Analítica y métricas de Vercel */}
+        <Analytics />
       </body>
     </html>
   );
