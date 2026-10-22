@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, useMemo } from "react";
 import { ref, onValue } from "firebase/database";
@@ -12,6 +12,7 @@ import {
   TarjetaSensor,
   ControlActuador,
   GraficaReciente,
+  MonitorLatencia,
 } from "@/componentes/telemetria";
 
 const LECTURA_VACIA: TelemetriaEnVivo = {
@@ -133,6 +134,9 @@ export default function Dashboard() {
           </span>
         )}
       </div>
+
+      {/* Monitor de latencia de recepción del hardware */}
+      <MonitorLatencia datosFirebase={datos} />
 
       {/* Grid de Sensores Ambientales: 2 columnas en movil, 4 en desktop */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
