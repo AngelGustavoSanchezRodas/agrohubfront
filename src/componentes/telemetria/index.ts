@@ -2,3 +2,4 @@ export * from "./TarjetaSensor";
 export * from "./ControlActuador";
 export * from "./GraficaReciente";
 export * from "./MonitorLatencia";
+export * from "./PanelTelemetria";

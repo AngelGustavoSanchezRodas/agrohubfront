@@ -1,4 +1,4 @@
-﻿export type EstadoSeveridadIA = "OPTIMO" | "ADVERTENCIA" | "CRITICO" | "DESCONOCIDO";
+export type EstadoSeveridadIA = "OPTIMO" | "ADVERTENCIA" | "CRITICO" | "DESCONOCIDO";
 
 export interface DiagnosticoIA {
   estado_general: EstadoSeveridadIA;
@@ -30,10 +30,10 @@ export interface RespuestaDiagnosticoBackend {
 export interface CultivoCatalogo {
   id: string;
   descripcion: string;
-  temperatura_c: [number, number] | number[];
-  humedad_ambiente_pct: [number, number] | number[];
-  humedad_suelo_pct: [number, number] | number[];
-  luz_lux: [number, number] | number[];
+  temperatura_c?: [number, number] | number[];
+  humedad_ambiente_pct?: [number, number] | number[];
+  humedad_suelo_pct?: [number, number] | number[];
+  luz_lux?: [number, number] | number[];
   notas: string;
   origen?: "catalogo" | "personalizado" | string;
 }

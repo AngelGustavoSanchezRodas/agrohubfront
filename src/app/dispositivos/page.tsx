@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useMemo } from "react";
 import { ref, onValue } from "firebase/database";
@@ -6,7 +6,7 @@ import { db } from "@/lib/firebase";
 import { Cpu, Search, Filter, RefreshCw, AlertCircle } from "lucide-react";
 import { obtenerDispositivos } from "@/services/api";
 import { fechaLecturaHeltec, lecturaReciente } from "@/lib/tiempo";
-import { DISPOSITIVO_ACTIVO, esNodoObsoleto } from "@/lib/dispositivos";
+import { obtenerDispositivoActivo, guardarDispositivoActivo, esNodoObsoleto } from "@/lib/dispositivos";
 import { DispositivoBackend, DispositivoConsolidado, NodoFirebase } from "@/types";
 import {
   MetricasDispositivos,
@@ -20,6 +20,7 @@ export default function Dispositivos() {
   const [error, setError] = useState<string | null>(null);
   const [busqueda, setBusqueda] = useState<string>("");
   const [filtroEstado, setFiltroEstado] = useState<"TODOS" | "ONLINE" | "OFFLINE">("TODOS");
+  const [estacionActiva, setEstacionActiva] = useState<string>(obtenerDispositivoActivo());
 
   // Cargar catálogo de estaciones activas
   const sincronizarDispositivos = async () => {
@@ -40,7 +41,28 @@ export default function Dispositivos() {
   };
 
   useEffect(() => {
-    sincronizarDispositivos();
+    let cancelado = false;
+    obtenerDispositivos()
+      .then((data) => {
+        if (!cancelado) {
+          setDispositivosBackend(Array.isArray(data) ? data : []);
+          setCargando(false);
+        }
+      })
+      .catch((err) => {
+        if (!cancelado) {
+          setError(
+            err instanceof Error
+              ? err.message
+              : "No se pudo sincronizar el estado de las estaciones."
+          );
+          setCargando(false);
+        }
+      });
+
+    return () => {
+      cancelado = true;
+    };
   }, []);
 
   // Escuchar estado en tiempo real de estaciones
@@ -106,6 +128,9 @@ export default function Dispositivos() {
         esOnline = lecturaReciente(estadoActual.timestamp);
       }
 
+      const cultivoTexto =
+        typeof estadoActual?.cultivo === "string" ? estadoActual.cultivo : undefined;
+
       if (mapa.has(id)) {
         const existente = mapa.get(id)!;
         existente.estado = esOnline ? "ONLINE" : "OFFLINE";
@@ -113,6 +138,8 @@ export default function Dispositivos() {
         existente.temperatura = estadoActual?.temperatura;
         existente.humedadAmbiente = estadoActual?.humedad_ambiente;
         existente.humedadSuelo = estadoActual?.humedad_suelo;
+        existente.intensidadLuz = estadoActual?.intensidad_luz_lux;
+        existente.cultivo = cultivoTexto ?? existente.cultivo;
       } else {
         mapa.set(id, {
           id,
@@ -123,14 +150,17 @@ export default function Dispositivos() {
           temperatura: estadoActual?.temperatura,
           humedadAmbiente: estadoActual?.humedad_ambiente,
           humedadSuelo: estadoActual?.humedad_suelo,
+          intensidadLuz: estadoActual?.intensidad_luz_lux,
+          cultivo: cultivoTexto,
           origen: "Firebase",
         });
       }
     }
 
+    const activo = obtenerDispositivoActivo();
     return Array.from(mapa.values()).sort((a, b) => {
-      if (a.id === DISPOSITIVO_ACTIVO) return -1;
-      if (b.id === DISPOSITIVO_ACTIVO) return 1;
+      if (a.id === activo) return -1;
+      if (b.id === activo) return 1;
       return a.id.localeCompare(b.id);
     });
   }, [dispositivosBackend, nodosFirebase]);
@@ -222,7 +252,15 @@ export default function Dispositivos() {
       </div>
 
       {/* Tabla de estaciones */}
-      <TablaDispositivos dispositivos={dispositivosFiltrados} cargando={cargando} />
+      <TablaDispositivos
+        dispositivos={dispositivosFiltrados}
+        cargando={cargando}
+        dispositivoActivo={estacionActiva}
+        onSeleccionarDispositivo={(id) => {
+          setEstacionActiva(id);
+          guardarDispositivoActivo(id);
+        }}
+      />
     </div>
   );
 }

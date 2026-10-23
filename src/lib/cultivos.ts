@@ -1,4 +1,4 @@
-﻿export const CULTIVO_POR_DEFECTO = "Tomate";
+export const CULTIVO_POR_DEFECTO = "Tomate";
 
 export const CULTIVOS_DISPONIBLES = [
   "Tomate",
@@ -77,14 +77,21 @@ export function limpiarListaCultivos(cultivos: string[]): string[] {
   return resultado;
 }
 
-/** Tipos de alertas automáticas generadas por umbrales agronómicos reales. */
+/** Tipos de alertas automáticas generadas por umbrales agronómicos y sensores reales. */
 export const TIPOS_ALERTA_SISTEMA = new Set([
   "ESTRES_HIDRICO",
   "GOLPE_CALOR",
   "RIESGO_HELADA",
   "PROLIFERACION_HONGOS",
+  "LUZ_INSUFICIENTE",
+  "EXCESO_RADIACION",
+  "DEFICIENCIA_HUMEDAD",
+  "EXCESO_HUMEDAD",
+  "ANOMALIA_SENSOR",
 ]);
 
 export function esAlertaSistema(tipoRiesgo: string): boolean {
-  return TIPOS_ALERTA_SISTEMA.has(tipoRiesgo);
+  if (!tipoRiesgo) return false;
+  const limpio = tipoRiesgo.trim().toUpperCase();
+  return TIPOS_ALERTA_SISTEMA.has(limpio) || !VALORES_INVALIDOS.has(limpio.toLowerCase());
 }

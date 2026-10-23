@@ -1,6 +1,7 @@
-import { ref, get } from "firebase/database";
+import { ref, get, update } from "firebase/database";
 import { db } from "@/lib/firebase";
 import { DISPOSITIVO_ACTIVO } from "@/lib/dispositivos";
+import { lecturaReciente } from "@/lib/tiempo";
 import {
   DatosTelemetriaHistorica,
   RespuestaHistorialBackend,
@@ -36,27 +37,15 @@ const ejecutarFetchSeguro = async (ruta: string, opciones?: RequestInit): Promis
   const baseUrl = getBaseUrl();
   const defaultHeaders = getHeaders();
   const headers = { ...defaultHeaders, ...(opciones?.headers as Record<string, string> | undefined) };
-  const esLocal = baseUrl.includes("127.0.0.1") || baseUrl.includes("localhost");
-  const candidatos = esLocal
-    ? [baseUrl]
-    : [baseUrl, "http://127.0.0.1:8000"];
 
-  let ultimoError: unknown = null;
-  for (const origen of candidatos) {
-    try {
-      const res = await fetch(`${origen}${ruta}`, { ...opciones, headers });
-      if (res.ok || (res.status !== 404 && res.status !== 502 && res.status !== 503)) {
-        return res;
-      }
-      ultimoError = new Error(`HTTP ${res.status}`);
-    } catch (err) {
-      ultimoError = err;
-    }
+  try {
+    const res = await fetch(`${baseUrl}${ruta}`, { ...opciones, headers });
+    return res;
+  } catch (err) {
+    throw err instanceof Error
+      ? err
+      : new Error("No se pudo conectar con la API de AgroHub");
   }
-
-  throw ultimoError instanceof Error
-    ? ultimoError
-    : new Error("No se pudo conectar con la API de AgroHub");
 };
 
 export const verificarEstadoBackend = async (): Promise<{ status: string; version?: string }> => {
@@ -140,8 +129,18 @@ export const obtenerDatosGrafica = async (
   limite?: number,
   dispositivoId: string = DISPOSITIVO_ACTIVO
 ): Promise<DatosTelemetriaHistorica[]> => {
-  const ruta = `/api/telemetria/historial/${dispositivoId}${limite ? `?limite=${limite}` : ""}`;
+  // 1. Fuente primaria: Firebase Realtime Database (lecturas en vivo transmitidas por hardware)
+  try {
+    const datosFirebase = await obtenerHistorialDesdeFirebase(dispositivoId);
+    if (datosFirebase.length > 0) {
+      return limite ? datosFirebase.slice(-limite) : datosFirebase;
+    }
+  } catch {
+    // Continuar al backend si la consulta en tiempo real falla
+  }
 
+  // 2. Fuente secundaria / contingencia: Backend Supabase PostgreSQL
+  const ruta = `/api/telemetria/historial/${dispositivoId}${limite ? `?limite=${limite}` : ""}`;
   try {
     const respuesta = await ejecutarFetchSeguro(ruta);
     if (respuesta.ok) {
@@ -155,14 +154,44 @@ export const obtenerDatosGrafica = async (
       }
     }
   } catch {
-    // Si el backend no responde, recuperar de Firebase RTDB
+    // Backend no disponible
   }
 
-  const datosFirebase = await obtenerHistorialDesdeFirebase(dispositivoId);
-  return limite ? datosFirebase.slice(-limite) : datosFirebase;
+  return [];
 };
 
 export const obtenerDispositivos = async (): Promise<DispositivoBackend[]> => {
+  // 1. Fuente primaria: Firebase Realtime Database
+  try {
+    const invRef = ref(db, "invernadero");
+    const snap = await get(invRef);
+    if (snap.exists()) {
+      const val = snap.val() as Record<string, Record<string, unknown>>;
+      const listaFirebase: DispositivoBackend[] = Object.entries(val).map(([id, nodo]) => {
+        const estadoActual = (nodo?.estado_actual || {}) as Record<string, unknown>;
+        const diagnostico = (nodo?.ultimo_diagnostico_ia || {}) as Record<string, unknown>;
+        const ts = estadoActual?.timestamp ? String(estadoActual.timestamp) : null;
+        const conectado = ts ? lecturaReciente(ts) : false;
+
+        return {
+          id_dispositivo: id,
+          nombre: String(nodo?.nombre || id),
+          ubicacion: nodo?.ubicacion ? String(nodo.ubicacion) : null,
+          cultivo: diagnostico?.cultivo ? String(diagnostico.cultivo) : null,
+          estado_conexion: conectado ? "ONLINE" : "OFFLINE",
+          fecha_instalacion: ts,
+        };
+      });
+
+      if (listaFirebase.length > 0) {
+        return listaFirebase;
+      }
+    }
+  } catch {
+    // Continuar a backend en dado caso que Firebase no responda
+  }
+
+  // 2. Fuente secundaria / contingencia: Backend FastAPI / Supabase
   try {
     const respuesta = await ejecutarFetchSeguro("/api/dispositivos");
     if (respuesta.ok) {
@@ -172,55 +201,116 @@ export const obtenerDispositivos = async (): Promise<DispositivoBackend[]> => {
       }
     }
   } catch {
-    // Continuar a fallback de Firebase si falla
-  }
-
-  try {
-    const invRef = ref(db, "invernadero");
-    const snap = await get(invRef);
-    if (snap.exists()) {
-      const val = snap.val() as Record<string, Record<string, unknown>>;
-      return Object.keys(val).map((id) => ({
-        id_dispositivo: id,
-        nombre: id,
-        ubicacion: null,
-        estado_conexion: "INACTIVO",
-      }));
-    }
-  } catch {
-    // Error en lectura de telemetría
+    // Backend no disponible
   }
 
   return [];
 };
 
 export const obtenerAlertas = async (): Promise<AlertaAgronomica[]> => {
-  const respuesta = await ejecutarFetchSeguro("/api/alertas?limite=50");
-  if (!respuesta.ok) {
-    throw new Error("No se pudieron consultar las alertas agronomicas");
+  // 1. Fuente primaria: Firebase Realtime Database (alertas activas en tiempo real)
+  try {
+    const invRef = ref(db, "invernadero");
+    const snap = await get(invRef);
+    if (snap.exists()) {
+      const val = snap.val() as Record<string, Record<string, unknown>>;
+      const alertas: AlertaAgronomica[] = [];
+      let contador = 1;
+
+      for (const [idDispositivo, nodo] of Object.entries(val)) {
+        if (nodo?.ultima_alerta && typeof nodo.ultima_alerta === "object") {
+          const al = nodo.ultima_alerta as Record<string, unknown>;
+          alertas.push({
+            id: contador++,
+            id_dispositivo: idDispositivo,
+            tipo_riesgo: String(al.tipo_riesgo || "ALERTA_ACTIVA"),
+            severidad: String(al.severidad || "MEDIA"),
+            mensaje_diagnostico: String(
+              al.mensaje || al.mensaje_diagnostico || "Condición anómala detectada en la estación."
+            ),
+            estado: (al.estado === "RESUELTA" ? "RESUELTA" : "ACTIVA") as "ACTIVA" | "RESUELTA",
+            creado_en: String(al.timestamp || new Date().toISOString()),
+          });
+        }
+      }
+
+      if (alertas.length > 0) {
+        return alertas;
+      }
+    }
+  } catch {
+    // Continuar a backend en dado caso que Firebase no responda
   }
-  const data = (await respuesta.json()) as AlertaAgronomica[];
-  return Array.isArray(data) ? data : [];
+
+  // 2. Fuente secundaria / contingencia: Backend FastAPI / Supabase
+  try {
+    const respuesta = await ejecutarFetchSeguro("/api/alertas?limite=50");
+    if (respuesta.ok) {
+      const data = (await respuesta.json()) as AlertaAgronomica[];
+      if (Array.isArray(data) && data.length > 0) {
+        return data;
+      }
+    }
+  } catch {
+    // Backend no disponible
+  }
+
+  return [];
 };
 
-export const resolverAlerta = async (idAlerta: number): Promise<void> => {
-  const respuesta = await ejecutarFetchSeguro(`/api/alertas/${idAlerta}/resolver`, {
-    method: "PATCH",
-  });
-  if (!respuesta.ok) {
-    throw new Error("No se pudo marcar la alerta como resuelta");
+export const resolverAlerta = async (
+  idAlerta: number,
+  idDispositivo?: string
+): Promise<void> => {
+  try {
+    const respuesta = await ejecutarFetchSeguro(`/api/alertas/${idAlerta}/resolver`, {
+      method: "PATCH",
+    });
+    if (respuesta.ok) return;
+  } catch {
+    // Si la API no responde, resolver en Firebase si se dispone del identificador de estacion
   }
+
+  if (idDispositivo) {
+    try {
+      const alertaRef = ref(db, `invernadero/${idDispositivo}/ultima_alerta`);
+      await update(alertaRef, {
+        estado: "RESUELTA",
+        resuelta_en: new Date().toISOString(),
+      });
+      return;
+    } catch {
+      // Error al actualizar Firebase
+    }
+  }
+
+  throw new Error("No se pudo marcar la alerta como resuelta");
 };
 
 export const actualizarCultivoDispositivo = async (
   dispositivoId: string,
   cultivo: string
 ): Promise<void> => {
-  const respuesta = await ejecutarFetchSeguro(`/api/dispositivos/${dispositivoId}`, {
-    method: "PATCH",
-    body: JSON.stringify({ cultivo }),
-  });
-  if (!respuesta.ok) {
+  const cultivoLimpio = cultivo.trim();
+
+  try {
+    const respuesta = await ejecutarFetchSeguro(`/api/dispositivos/${dispositivoId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ cultivo: cultivoLimpio }),
+    });
+    if (respuesta.ok) {
+      const diagRef = ref(db, `invernadero/${dispositivoId}/ultimo_diagnostico_ia`);
+      await update(diagRef, { cultivo: cultivoLimpio }).catch(() => {});
+      return;
+    }
+  } catch {
+    // Continuar a Firebase si la API no está disponible
+  }
+
+  try {
+    const diagRef = ref(db, `invernadero/${dispositivoId}/ultimo_diagnostico_ia`);
+    await update(diagRef, { cultivo: cultivoLimpio });
+  } catch {
     throw new Error("No se pudo guardar el cultivo del invernadero");
   }
 };
@@ -243,7 +333,13 @@ const guardarCultivoLocal = (nombre: string): string[] => {
   const actuales = leerCultivosLocales();
   const sinDup = actuales.filter((c) => c.toLowerCase() !== limpio.toLowerCase());
   const siguiente = [...sinDup, limpio];
-  window.localStorage.setItem(CLAVE_CULTIVOS_LOCAL, JSON.stringify(siguiente));
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.setItem(CLAVE_CULTIVOS_LOCAL, JSON.stringify(siguiente));
+    } catch {
+      // Ignorar error de storage
+    }
+  }
   return siguiente;
 };
 
@@ -252,6 +348,7 @@ export const obtenerCultivosIA = async (): Promise<{
   cultivos: CultivoCatalogo[];
 }> => {
   const locales = leerCultivosLocales();
+
   try {
     const respuesta = await ejecutarFetchSeguro("/api/ia/cultivos");
     if (respuesta.ok) {
@@ -265,41 +362,48 @@ export const obtenerCultivosIA = async (): Promise<{
         .filter((n) => !ids.has(n.toLowerCase()))
         .map((id) => ({
           id,
-          descripcion: `Cultivo personalizado: ${id}`,
-          temperatura_c: [18, 28],
-          humedad_ambiente_pct: [45, 75],
-          humedad_suelo_pct: [55, 80],
-          luz_lux: [8000, 35000],
-          notas: "Agregado localmente en este navegador.",
+          descripcion: `Cultivo registrado: ${id}`,
+          notas: "Cultivo registrado por el usuario.",
           origen: "personalizado",
         }));
       return {
-        cultivo_por_defecto: data.cultivo_por_defecto || "Tomate",
+        cultivo_por_defecto: data.cultivo_por_defecto || remotos[0]?.id || (locales[0] ?? "Tomate"),
         cultivos: [...remotos, ...extras],
       };
     }
   } catch {
-    // Continuar con catalogo local
+    // Recuperar cultivos reales de las estaciones en Firebase si no hay API
   }
 
-  const base = ["Tomate", "Lechuga", "Pimiento", "Fresa", "Albahaca", "Pepino"];
-  const unidos = [...base];
-  for (const n of locales) {
-    if (!unidos.some((c) => c.toLowerCase() === n.toLowerCase())) {
-      unidos.push(n);
+  const cultivosDetectados = new Set<string>(locales);
+  try {
+    const invRef = ref(db, "invernadero");
+    const snap = await get(invRef);
+    if (snap.exists()) {
+      const val = snap.val() as Record<string, Record<string, unknown>>;
+      for (const nodo of Object.values(val)) {
+        const diag = nodo?.ultimo_diagnostico_ia as Record<string, unknown> | undefined;
+        if (diag?.cultivo && typeof diag.cultivo === "string" && diag.cultivo.trim()) {
+          cultivosDetectados.add(diag.cultivo.trim());
+        }
+      }
     }
+  } catch {
+    // Error en lectura de estaciones
   }
+
+  const lista = Array.from(cultivosDetectados);
+  if (lista.length === 0) {
+    lista.push("Tomate");
+  }
+
   return {
-    cultivo_por_defecto: "Tomate",
-    cultivos: unidos.map((id) => ({
+    cultivo_por_defecto: lista[0],
+    cultivos: lista.map((id) => ({
       id,
       descripcion: id,
-      temperatura_c: [18, 28],
-      humedad_ambiente_pct: [45, 75],
-      humedad_suelo_pct: [55, 80],
-      luz_lux: [8000, 35000],
-      notas: "",
-      origen: "personalizado",
+      notas: "Cultivo detectado en las estaciones de monitoreo.",
+      origen: "estacion_campo",
     })),
   };
 };
@@ -308,13 +412,14 @@ export const registrarCultivoIA = async (
   nombre: string
 ): Promise<{ cultivo: string; cultivos: CultivoCatalogo[] }> => {
   const limpio = nombre.trim();
+  guardarCultivoLocal(limpio);
+
   try {
     const respuesta = await ejecutarFetchSeguro("/api/ia/cultivos", {
       method: "POST",
       body: JSON.stringify({ nombre: limpio }),
     });
     if (respuesta.ok) {
-      guardarCultivoLocal(limpio);
       const data = (await respuesta.json()) as {
         cultivo?: string;
         cultivos?: CultivoCatalogo[];
@@ -325,26 +430,10 @@ export const registrarCultivoIA = async (
       };
     }
   } catch {
-    // Fallback local si la API desplegada no tiene el endpoint o esta caída
+    // Fallback local
   }
 
-  const locales = guardarCultivoLocal(limpio);
   const catalogo = await obtenerCultivosIA();
-  const ids = new Set(catalogo.cultivos.map((c) => c.id.toLowerCase()));
-  for (const n of locales) {
-    if (!ids.has(n.toLowerCase())) {
-      catalogo.cultivos.push({
-        id: n,
-        descripcion: `Cultivo personalizado: ${n}`,
-        temperatura_c: [18, 28],
-        humedad_ambiente_pct: [45, 75],
-        humedad_suelo_pct: [55, 80],
-        luz_lux: [8000, 35000],
-        notas: "Guardado en este navegador hasta sincronizar con la API.",
-        origen: "personalizado",
-      });
-    }
-  }
   return { cultivo: limpio, cultivos: catalogo.cultivos };
 };
 
@@ -352,6 +441,32 @@ export const obtenerDiagnosticoIA = async (
   dispositivoId: string = DISPOSITIVO_ACTIVO,
   cultivo?: string
 ): Promise<{ diagnostico: DiagnosticoIA; cultivo: string }> => {
+  // 1. Fuente primaria: Firebase Realtime Database (diagnostico en tiempo real guardado)
+  // Solo se consulta Firebase primero si no se pidio regenerar expresamente para un cultivo distinto
+  if (!cultivo) {
+    try {
+      const diagRef = ref(db, `invernadero/${dispositivoId}/ultimo_diagnostico_ia`);
+      const snap = await get(diagRef);
+      if (snap.exists()) {
+        const val = snap.val() as Record<string, unknown>;
+        return {
+          diagnostico: {
+            estado_general: (val.estado_general as DiagnosticoIA["estado_general"]) || "DESCONOCIDO",
+            riesgo_detectado: String(val.riesgo_detectado || "Sin anomalía reportada"),
+            recomendacion_tecnica: String(val.recomendacion_tecnica || "Mantener monitoreo continuo."),
+            evaluacion_humedad: val.evaluacion_humedad ? String(val.evaluacion_humedad) : undefined,
+            evaluacion_temperatura: val.evaluacion_temperatura ? String(val.evaluacion_temperatura) : undefined,
+            evaluacion_luz: val.evaluacion_luz ? String(val.evaluacion_luz) : undefined,
+          },
+          cultivo: String(val.cultivo || "Tomate"),
+        };
+      }
+    } catch {
+      // Continuar al backend si Firebase no responde
+    }
+  }
+
+  // 2. Fuente secundaria / Generacion a demanda: Backend FastAPI Gemini IA
   const query = cultivo ? `?cultivo=${encodeURIComponent(cultivo)}` : "";
   let errorApi: string | null = null;
 
@@ -384,34 +499,29 @@ export const obtenerDiagnosticoIA = async (
         : "No se pudo conectar con la API.";
   }
 
-  // Solo usar Firebase si NO se pidió regenerar para un cultivo concreto.
-  // Si se pidió (ej. Tomate), no devolver un diagnóstico viejo de Pepino.
-  if (!cultivo) {
-    try {
-      const diagRef = ref(db, `invernadero/${dispositivoId}/ultimo_diagnostico_ia`);
-      const snap = await get(diagRef);
-      if (snap.exists()) {
-        const val = snap.val() as Record<string, unknown>;
-        return {
-          diagnostico: {
-            estado_general: (val.estado_general as DiagnosticoIA["estado_general"]) || "DESCONOCIDO",
-            riesgo_detectado: String(val.riesgo_detectado || "Sin anomalía reportada"),
-            recomendacion_tecnica: String(val.recomendacion_tecnica || "Mantener monitoreo continuo."),
-            evaluacion_humedad: val.evaluacion_humedad
-              ? String(val.evaluacion_humedad)
-              : undefined,
-            evaluacion_luz: val.evaluacion_luz ? String(val.evaluacion_luz) : undefined,
-          },
-          cultivo: String(val.cultivo || "Tomate"),
-        };
-      }
-    } catch {
-      // sin contingencia
+  // Si falló el backend pero el nodo tiene diagnostico previo en Firebase, usarlo de contingencia
+  try {
+    const diagRef = ref(db, `invernadero/${dispositivoId}/ultimo_diagnostico_ia`);
+    const snap = await get(diagRef);
+    if (snap.exists()) {
+      const val = snap.val() as Record<string, unknown>;
+      return {
+        diagnostico: {
+          estado_general: (val.estado_general as DiagnosticoIA["estado_general"]) || "DESCONOCIDO",
+          riesgo_detectado: String(val.riesgo_detectado || "Sin anomalía reportada"),
+          recomendacion_tecnica: String(val.recomendacion_tecnica || "Mantener monitoreo continuo."),
+          evaluacion_humedad: val.evaluacion_humedad ? String(val.evaluacion_humedad) : undefined,
+          evaluacion_temperatura: val.evaluacion_temperatura ? String(val.evaluacion_temperatura) : undefined,
+          evaluacion_luz: val.evaluacion_luz ? String(val.evaluacion_luz) : undefined,
+        },
+        cultivo: String(val.cultivo || cultivo || "Tomate"),
+      };
     }
+  } catch {
+    // Sin contingencia
   }
 
   throw new Error(
-    errorApi ||
-      "No se pudo obtener un diagnóstico nuevo. Verifica que la API esté en marcha y actualizada."
+    errorApi || "No se pudo obtener el diagnóstico. Verifica la conexión con Firebase y la API."
   );
 };

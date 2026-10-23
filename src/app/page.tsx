@@ -3,32 +3,53 @@
 import { useEffect, useState, useMemo } from "react";
 import { ref, onValue } from "firebase/database";
 import { db } from "@/lib/firebase";
-import { Thermometer, Droplets, Leaf, Flame } from "lucide-react";
-import { obtenerDatosGrafica } from "@/services/api";
-import { DISPOSITIVO_ACTIVO } from "@/lib/dispositivos";
+import { Cpu } from "lucide-react";
+import { obtenerDatosGrafica, obtenerDispositivos } from "@/services/api";
+import { obtenerDispositivoActivo, guardarDispositivoActivo } from "@/lib/dispositivos";
 import { horaLecturaHeltec } from "@/lib/tiempo";
-import { TelemetriaEnVivo, DatosTelemetriaHistorica } from "@/types";
+import { TelemetriaEnVivo, DatosTelemetriaHistorica, DispositivoBackend } from "@/types";
 import {
-  TarjetaSensor,
   ControlActuador,
   GraficaReciente,
-  MonitorLatencia,
+  PanelTelemetria,
 } from "@/componentes/telemetria";
 
 const LECTURA_VACIA: TelemetriaEnVivo = {
   temperatura: "--.-",
   humedad_ambiente: "--",
   humedad_suelo: "--",
+  intensidad_luz_lux: "--",
   indice_calor: "--.-",
   estado_bomba: false,
 };
 
 export default function Dashboard() {
-  const [dispositivoActual] = useState<string>(DISPOSITIVO_ACTIVO);
+  const [dispositivos, setDispositivos] = useState<DispositivoBackend[]>([]);
+  const [dispositivoActual, setDispositivoActual] = useState<string>(obtenerDispositivoActivo());
   const [datos, setDatos] = useState<TelemetriaEnVivo>(LECTURA_VACIA);
+  const [controlBomba, setControlBomba] = useState<{
+    accion?: string;
+    origen?: string;
+    timestamp?: string;
+  } | null>(null);
   const [historial, setHistorial] = useState<DatosTelemetriaHistorica[]>([]);
   const [cargandoGrafica, setCargandoGrafica] = useState<boolean>(true);
 
+  // Cargar catalogo real de dispositivos para selector
+  useEffect(() => {
+    obtenerDispositivos().then((lista) => {
+      if (Array.isArray(lista) && lista.length > 0) {
+        setDispositivos(lista);
+        if (!lista.some((d) => d.id_dispositivo === dispositivoActual)) {
+          const primero = lista[0].id_dispositivo;
+          setDispositivoActual(primero);
+          guardarDispositivoActivo(primero);
+        }
+      }
+    });
+  }, [dispositivoActual]);
+
+  // Escuchar estado en tiempo real de Firebase
   useEffect(() => {
     const invernaderoRef = ref(db, `invernadero/${dispositivoActual}/estado_actual`);
 
@@ -48,6 +69,7 @@ export default function Dashboard() {
           temperatura: val.temperatura !== undefined ? Number(val.temperatura).toFixed(1) : "--.-",
           humedad_ambiente: val.humedad_ambiente !== undefined ? Number(val.humedad_ambiente).toFixed(0) : "--",
           humedad_suelo: val.humedad_suelo !== undefined ? Number(val.humedad_suelo).toFixed(0) : "--",
+          intensidad_luz_lux: val.intensidad_luz_lux !== undefined ? Number(val.intensidad_luz_lux).toFixed(0) : "--",
           indice_calor: indice !== undefined ? Number(indice).toFixed(1) : "--.-",
           estado_bomba: Boolean(val.estado_bomba),
           timestamp: typeof val.timestamp === "string" ? val.timestamp : undefined,
@@ -60,6 +82,26 @@ export default function Dashboard() {
     return () => unsubscribe();
   }, [dispositivoActual]);
 
+  // Escuchar metadatos de control del actuador en Firebase
+  useEffect(() => {
+    const controlRef = ref(db, `invernadero/${dispositivoActual}/control/bomba`);
+    const unsubscribe = onValue(controlRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const val = snapshot.val() as Record<string, unknown>;
+        setControlBomba({
+          accion: typeof val.accion === "string" ? val.accion : undefined,
+          origen: typeof val.origen === "string" ? val.origen : undefined,
+          timestamp: typeof val.timestamp === "string" ? val.timestamp : undefined,
+        });
+      } else {
+        setControlBomba(null);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [dispositivoActual]);
+
+  // Consultar historial
   useEffect(() => {
     let cancelado = false;
 
@@ -102,9 +144,18 @@ export default function Dashboard() {
   const badgeSustrato = useMemo(() => {
     const s = Number(datos.humedad_suelo);
     if (isNaN(s)) return undefined;
-    if (s < 55.6) return { texto: "Riego Requerido", clase: "bg-amber-500/10 text-amber-400 border-amber-500/30" };
+    if (datos.estado_bomba) return { texto: "Riego en Curso", clase: "bg-blue-500/10 text-blue-400 border-blue-500/30 animate-pulse" };
+    if (s < 50) return { texto: "Riego Requerido", clase: "bg-amber-500/10 text-amber-400 border-amber-500/30" };
     return { texto: "Sustrato Hidratado", clase: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" };
-  }, [datos.humedad_suelo]);
+  }, [datos.humedad_suelo, datos.estado_bomba]);
+
+  const badgeLuz = useMemo(() => {
+    const l = Number(datos.intensidad_luz_lux);
+    if (isNaN(l)) return undefined;
+    if (l < 5000) return { texto: "Baja Radiación", clase: "bg-amber-500/10 text-amber-400 border-amber-500/30" };
+    if (l > 45000) return { texto: "Alta Radiación", clase: "bg-red-500/10 text-red-400 border-red-500/30" };
+    return { texto: "Óptimo", clase: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" };
+  }, [datos.intensidad_luz_lux]);
 
   const badgeIndiceCalor = useMemo(() => {
     const ic = Number(datos.indice_calor);
@@ -118,8 +169,8 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col gap-6 sm:gap-8 max-w-7xl mx-auto">
-      {/* Cabecera Principal */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-agro-border/60">
+      {/* Cabecera Principal con Selector de Estacion Dinamico */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-agro-border/60">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
             Monitoreo en Tiempo Real
@@ -128,59 +179,58 @@ export default function Dashboard() {
             Variables agroclimáticas y condiciones del sustrato en el invernadero.
           </p>
         </div>
-        {datos.timestamp && (
-          <span className="text-xs text-gray-400 self-start sm:self-auto font-mono">
-            Última lectura: {horaLecturaHeltec(datos.timestamp)}
-          </span>
-        )}
+
+        <div className="flex flex-wrap items-center gap-3 self-start sm:self-auto">
+          {dispositivos.length > 1 && (
+            <div className="flex items-center gap-1.5 bg-slate-950 border border-agro-border rounded-xl px-2.5 py-1">
+              <Cpu className="w-3.5 h-3.5 text-agro-green shrink-0" />
+              <select
+                aria-label="Seleccionar estación activa"
+                value={dispositivoActual}
+                onChange={(e) => {
+                  const nuevo = e.target.value;
+                  setDispositivoActual(nuevo);
+                  guardarDispositivoActivo(nuevo);
+                }}
+                className="bg-transparent text-xs text-white focus:outline-none cursor-pointer"
+              >
+                {dispositivos.map((d) => (
+                  <option key={d.id_dispositivo} value={d.id_dispositivo} className="bg-slate-900 text-white">
+                    {d.nombre || d.id_dispositivo}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {datos.timestamp && (
+            <span className="text-xs text-gray-400 font-mono">
+              Última lectura: {horaLecturaHeltec(datos.timestamp)}
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Monitor de latencia de recepción del hardware */}
-      <MonitorLatencia datosFirebase={datos} />
-
-      {/* Grid de Sensores Ambientales: 2 columnas en movil, 4 en desktop */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-        <TarjetaSensor
-          titulo="Temperatura"
-          valor={datos.temperatura ?? "--.-"}
-          unidad="°C"
-          subtitulo="Temperatura en cultivo"
-          icono={Thermometer}
-          iconoColorClass="text-agro-orange"
-          badgeEstado={badgeTemperatura}
-        />
-        <TarjetaSensor
-          titulo="Humedad Aire"
-          valor={datos.humedad_ambiente ?? "--"}
-          unidad="%"
-          subtitulo="Humedad relativa del aire"
-          icono={Droplets}
-          iconoColorClass="text-blue-400"
-          badgeEstado={badgeHumedadAmb}
-        />
-        <TarjetaSensor
-          titulo="Humedad Suelo"
-          valor={datos.humedad_suelo ?? "--"}
-          unidad="%"
-          subtitulo="Humedad en zona radicular"
-          icono={Leaf}
-          iconoColorClass="text-agro-green"
-          badgeEstado={badgeSustrato}
-        />
-        <TarjetaSensor
-          titulo="Índice de Calor"
-          valor={datos.indice_calor ?? "--.-"}
-          unidad="°C"
-          subtitulo="Sensación térmica en planta"
-          icono={Flame}
-          iconoColorClass="text-rose-400"
-          badgeEstado={badgeIndiceCalor}
-        />
-      </div>
+      {/* Panel Unificado de Telemetría en Vivo y Perro Guardián */}
+      <PanelTelemetria
+        datosFirebase={datos}
+        badges={{
+          temperatura: badgeTemperatura,
+          humedadAmb: badgeHumedadAmb,
+          sustrato: badgeSustrato,
+          luz: badgeLuz,
+          indiceCalor: badgeIndiceCalor,
+        }}
+      />
 
       {/* Panel de Actuador de Riego y Control */}
       <div className="grid grid-cols-1 gap-6">
-        <ControlActuador estadoBomba={!!datos.estado_bomba} />
+        <ControlActuador
+          estadoBomba={!!datos.estado_bomba}
+          origen={controlBomba?.origen}
+          accion={controlBomba?.accion}
+          timestamp={controlBomba?.timestamp}
+        />
       </div>
 
       {/* Grafica de Evolucion Cronologica */}

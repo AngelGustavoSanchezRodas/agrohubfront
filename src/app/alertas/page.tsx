@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { Brain, Loader2, Activity, Leaf, Plus } from "lucide-react";
@@ -16,8 +16,8 @@ import {
   esNombreCultivoValido,
   formatearNombreCultivo,
 } from "@/lib/cultivos";
-import { DISPOSITIVO_ACTIVO } from "@/lib/dispositivos";
-import { DiagnosticoIA } from "@/types";
+import { obtenerDispositivoActivo, guardarDispositivoActivo } from "@/lib/dispositivos";
+import { DiagnosticoIA, DispositivoBackend } from "@/types";
 import { TarjetaSeveridad, DetalleDiagnostico } from "@/componentes/alertas";
 
 export default function DiagnosticosIA() {
@@ -27,37 +27,63 @@ export default function DiagnosticosIA() {
   const [cultivoDiagnostico, setCultivoDiagnostico] = useState<string>(CULTIVO_POR_DEFECTO);
   const [cultivo, setCultivo] = useState<string>(CULTIVO_POR_DEFECTO);
   const [opcionesCultivo, setOpcionesCultivo] = useState<string[]>([...CULTIVOS_DISPONIBLES]);
+  const [dispositivos, setDispositivos] = useState<DispositivoBackend[]>([]);
+  const [estacion, setEstacion] = useState<string>(obtenerDispositivoActivo());
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [nuevoCultivo, setNuevoCultivo] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
 
-  const cargarCultivos = async () => {
-    try {
-      const data = await obtenerCultivosIA();
-      const ids = (data.cultivos || []).map((c) => c.id);
-      const filtrados = limpiarListaCultivos(ids.length > 0 ? ids : [...CULTIVOS_DISPONIBLES]);
-      setOpcionesCultivo(filtrados.length > 0 ? filtrados : [...CULTIVOS_DISPONIBLES]);
-    } catch {
-      setOpcionesCultivo([...CULTIVOS_DISPONIBLES]);
-    }
-  };
-
   useEffect(() => {
-    cargarCultivos();
-    obtenerDispositivos()
-      .then((lista) => {
-        const actual = lista.find((d) => d.id_dispositivo === DISPOSITIVO_ACTIVO);
-        if (actual?.cultivo && esNombreCultivoValido(actual.cultivo)) {
-          const nombre = formatearNombreCultivo(String(actual.cultivo));
-          setCultivo(nombre);
-          setOpcionesCultivo((prev) => limpiarListaCultivos([...prev, nombre]));
+    let cancelado = false;
+
+    obtenerCultivosIA()
+      .then((data) => {
+        if (!cancelado) {
+          const ids = (data.cultivos || []).map((c) => c.id);
+          const filtrados = limpiarListaCultivos(ids.length > 0 ? ids : [...CULTIVOS_DISPONIBLES]);
+          setOpcionesCultivo(filtrados.length > 0 ? filtrados : [...CULTIVOS_DISPONIBLES]);
         }
       })
       .catch(() => {
-        // Se mantiene Tomate por defecto
+        if (!cancelado) {
+          setOpcionesCultivo([...CULTIVOS_DISPONIBLES]);
+        }
       });
-  }, []);
+
+    obtenerDispositivos()
+      .then((lista) => {
+        if (cancelado) return;
+        setDispositivos(lista);
+        const actual = lista.find((d) => d.id_dispositivo === estacion) || lista[0];
+        if (actual) {
+          setEstacion(actual.id_dispositivo);
+          if (actual.cultivo && esNombreCultivoValido(actual.cultivo)) {
+            const nombre = formatearNombreCultivo(String(actual.cultivo));
+            setCultivo(nombre);
+            setOpcionesCultivo((prev) => limpiarListaCultivos([...prev, nombre]));
+          }
+        }
+      })
+      .catch(() => {
+        // Manejo silencioso
+      });
+
+    obtenerDiagnosticoIA(estacion)
+      .then((res) => {
+        if (!cancelado) {
+          setDiagnostico(res.diagnostico);
+          setCultivoDiagnostico(res.cultivo);
+        }
+      })
+      .catch(() => {
+        // En espera de que se genere o sincronice diagnostico
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [estacion]);
 
   const agregarCultivo = async () => {
     const nombre = nuevoCultivo.trim();
@@ -99,11 +125,11 @@ export default function DiagnosticosIA() {
     setDiagnostico(null);
     try {
       try {
-        await actualizarCultivoDispositivo(DISPOSITIVO_ACTIVO, cultivoEfectivo);
+        await actualizarCultivoDispositivo(estacion, cultivoEfectivo);
       } catch {
         // El diagnostico igual puede usar el query param
       }
-      const resultado = await obtenerDiagnosticoIA(DISPOSITIVO_ACTIVO, cultivoEfectivo);
+      const resultado = await obtenerDiagnosticoIA(estacion, cultivoEfectivo);
       setDiagnostico(resultado.diagnostico);
       setCultivoDiagnostico(resultado.cultivo);
     } catch (err) {
@@ -128,8 +154,7 @@ export default function DiagnosticosIA() {
               <span>Diagnóstico con IA</span>
             </h2>
             <p className="text-gray-400 text-sm mt-1">
-              Elige o agrega el cultivo del invernadero. La IA compara las lecturas con ese perfil y
-              recomienda qué ajustar.
+              Evaluación agronómica y recomendaciones técnicas basadas en telemetría real.
             </p>
           </div>
 
@@ -147,8 +172,33 @@ export default function DiagnosticosIA() {
           </button>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-end gap-3">
-          <label className="flex flex-col gap-2 flex-1 max-w-sm">
+        <div className="flex flex-col sm:flex-row sm:items-end gap-3 flex-wrap">
+          {dispositivos.length > 1 && (
+            <label className="flex flex-col gap-2 flex-1 min-w-[180px] max-w-xs">
+              <span className="text-xs uppercase tracking-wide text-gray-500 font-semibold">
+                Estación de Monitoreo
+              </span>
+              <select
+                value={estacion}
+                onChange={(e) => {
+                  setEstacion(e.target.value);
+                  guardarDispositivoActivo(e.target.value);
+                  setDiagnostico(null);
+                  setError(null);
+                  setAviso(null);
+                }}
+                className="bg-slate-950 border border-agro-border rounded-xl px-4 py-2.5 text-base sm:text-sm text-white focus:outline-none focus:border-agro-green w-full"
+              >
+                {dispositivos.map((d) => (
+                  <option key={d.id_dispositivo} value={d.id_dispositivo}>
+                    {d.nombre || d.id_dispositivo}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          <label className="flex flex-col gap-2 flex-1 min-w-[200px] max-w-sm">
             <span className="text-xs uppercase tracking-wide text-gray-500 font-semibold flex items-center gap-1.5">
               <Leaf className="w-3.5 h-3.5 text-agro-green" />
               Tipo de cultivo o planta
@@ -236,12 +286,12 @@ export default function DiagnosticosIA() {
             recomendacionTecnica={diagnostico.recomendacion_tecnica}
             evaluacionHumedad={diagnostico.evaluacion_humedad}
             evaluacionTemperatura={diagnostico.evaluacion_temperatura}
+            evaluacionLuz={diagnostico.evaluacion_luz}
           />
         </div>
       ) : (
         <p className="text-sm text-gray-500">
-          Elige o agrega un cultivo y genera el diagnóstico. El resultado mostrará balance hídrico,
-          condición térmica y recomendaciones agronómicas.
+          Sin diagnóstico previo en Firebase. Selecciona un cultivo y genera una evaluación.
         </p>
       )}
     </div>

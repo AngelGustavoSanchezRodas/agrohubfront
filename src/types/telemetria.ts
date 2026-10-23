@@ -4,6 +4,8 @@ export interface DatosTelemetriaHistorica {
   humedad_ambiente: number;
   humedad_suelo: number;
   indice_calor?: number;
+  intensidad_luz_lux?: number;
+  luz_uv?: number;
   estado_bomba?: boolean;
   creado_en: string;
   tiempo?: string;
@@ -16,7 +18,9 @@ export interface TelemetriaEnVivo {
   temperatura: number | string;
   humedad_ambiente: number | string;
   humedad_suelo: number | string;
+  intensidad_luz_lux?: number | string;
   indice_calor?: number | string;
+  luz_uv?: number | string;
   estado_bomba?: boolean;
   timestamp?: string;
 }

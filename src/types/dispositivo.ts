@@ -17,6 +17,8 @@ export interface DispositivoConsolidado {
   temperatura?: number | string;
   humedadAmbiente?: number | string;
   humedadSuelo?: number | string;
+  intensidadLuz?: number | string;
+  cultivo?: string;
   origen?: string;
 }
 
@@ -28,8 +30,10 @@ export interface NodoFirebase {
     timestamp?: string;
     id_dispositivo?: string;
     luz_uv?: number;
+    intensidad_luz_lux?: number;
     radiacion_solar?: number;
     estado_bomba?: boolean;
+    cultivo?: string;
     [key: string]: unknown;
   };
   buffer_telemetria?: Record<string, Record<string, unknown>>;

@@ -1,12 +1,36 @@
-﻿import { Activity, Droplets, CheckCircle2 } from "lucide-react";
+import React from "react";
+import { Activity, Droplets, CheckCircle2 } from "lucide-react";
+import { horaLecturaHeltec } from "@/lib/tiempo";
 
 interface ControlActuadorProps {
   estadoBomba: boolean;
+  origen?: string | null;
+  accion?: string | null;
+  timestamp?: string | null;
   ejecutando?: boolean;
   onToggle?: () => void;
 }
 
-export function ControlActuador({ estadoBomba }: ControlActuadorProps) {
+export function ControlActuador({
+  estadoBomba,
+  origen,
+  accion,
+  timestamp,
+}: ControlActuadorProps) {
+  const modoTexto = origen
+    ? origen === "MANUAL_WEB"
+      ? "Control Web Manual"
+      : origen === "ESP32_AUTO"
+      ? "ESP32 Automático"
+      : String(origen)
+    : "Monitoreo de Bomba";
+
+  const detalleTexto = accion
+    ? `Último comando registrado: ${accion}${timestamp ? ` (${horaLecturaHeltec(timestamp)})` : ""}`
+    : estadoBomba
+    ? "Actuador encendido reportado por telemetría."
+    : "Actuador apagado reportado por telemetría.";
+
   return (
     <div className="bg-agro-dark/80 backdrop-blur-sm border border-agro-border hover:border-slate-700 rounded-2xl p-4 sm:p-5 flex flex-col justify-between transition-all duration-200 shadow-sm">
       <div className="flex items-center justify-between gap-2 mb-3">
@@ -17,7 +41,7 @@ export function ControlActuador({ estadoBomba }: ControlActuadorProps) {
           </span>
         </div>
         <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-slate-950 border border-agro-border text-gray-400 font-medium">
-          Modo Automático
+          {modoTexto}
         </span>
       </div>
 
@@ -39,10 +63,8 @@ export function ControlActuador({ estadoBomba }: ControlActuadorProps) {
           </span>
         </div>
 
-        <p className="text-xs text-gray-400 sm:text-right">
-          {estadoBomba
-            ? "Suministrando agua al sustrato para restablecer la hidratación óptima."
-            : "Humedad del sustrato dentro de los parámetros adecuados para el cultivo."}
+        <p className="text-xs text-gray-400 sm:text-right font-mono text-[11px]">
+          {detalleTexto}
         </p>
       </div>
     </div>

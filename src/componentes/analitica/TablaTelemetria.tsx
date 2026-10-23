@@ -1,3 +1,4 @@
+import React from "react";
 import { DatosTelemetriaHistorica } from "@/types";
 import { etiquetaLectura } from "@/lib/tiempo";
 
@@ -13,7 +14,7 @@ export function TablaTelemetria({ datos, cargando }: TablaTelemetriaProps) {
         Registro Cronológico de Lecturas
       </h3>
       <p className="text-xs text-gray-400 mb-4">
-        Historial de mediciones ambientales y condiciones del sustrato.
+        Historial de mediciones ambientales y condiciones del sustrato registradas.
       </p>
 
       <div className="overflow-x-auto -mx-4 sm:mx-0">
@@ -24,15 +25,16 @@ export function TablaTelemetria({ datos, cargando }: TablaTelemetriaProps) {
               <th className="py-3 px-3 sm:px-4">Temperatura</th>
               <th className="py-3 px-3 sm:px-4">Humedad Aire</th>
               <th className="py-3 px-3 sm:px-4">Humedad Suelo</th>
+              <th className="py-3 px-3 sm:px-4">Luz (Lux)</th>
               <th className="py-3 px-3 sm:px-4">Índice Calor</th>
               <th className="py-3 px-3 sm:px-4">Bomba</th>
-              <th className="py-3 px-3 sm:px-4 text-right">Condición</th>
+              <th className="py-3 px-3 sm:px-4 text-right">Origen</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-agro-border/40">
             {datos.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-gray-500 text-xs">
+                <td colSpan={8} className="py-8 text-center text-gray-500 text-xs">
                   {cargando
                     ? "Cargando registros..."
                     : "No se encontraron lecturas en el período seleccionado."}
@@ -44,14 +46,17 @@ export function TablaTelemetria({ datos, cargando }: TablaTelemetriaProps) {
                 .reverse()
                 .map((item, idx) => {
                   const tempNum = Number(item.temperatura) || 0;
-                  const esOptimo = tempNum >= 18 && tempNum <= 28;
-                  const indiceCalor = item.indice_calor !== undefined && item.indice_calor !== null
-                    ? `${Number(item.indice_calor).toFixed(1)}°C`
-                    : `${tempNum.toFixed(1)}°C`;
+                  const indiceCalor =
+                    item.indice_calor !== undefined && item.indice_calor !== null
+                      ? `${Number(item.indice_calor).toFixed(1)}°C`
+                      : `${tempNum.toFixed(1)}°C`;
+                  const luzNum = item.intensidad_luz_lux !== undefined
+                    ? `${item.intensidad_luz_lux} lx`
+                    : "--";
 
                   return (
                     <tr
-                      key={idx}
+                      key={item.id ? String(item.id) : idx}
                       className="hover:bg-slate-800/40 transition-colors"
                     >
                       <td className="py-3 px-3 sm:px-4 text-gray-300 font-medium whitespace-nowrap">
@@ -68,6 +73,9 @@ export function TablaTelemetria({ datos, cargando }: TablaTelemetriaProps) {
                       <td className="py-3 px-3 sm:px-4 text-agro-green font-medium whitespace-nowrap">
                         {item.humedad_suelo}%
                       </td>
+                      <td className="py-3 px-3 sm:px-4 text-yellow-300 font-medium whitespace-nowrap">
+                        {luzNum}
+                      </td>
                       <td className="py-3 px-3 sm:px-4 text-rose-400 font-medium whitespace-nowrap">
                         {indiceCalor}
                       </td>
@@ -83,14 +91,8 @@ export function TablaTelemetria({ datos, cargando }: TablaTelemetriaProps) {
                         </span>
                       </td>
                       <td className="py-3 px-3 sm:px-4 text-right whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${
-                            esOptimo
-                              ? "border-agro-green/30 text-agro-green bg-agro-green/10"
-                              : "border-agro-orange/30 text-agro-orange bg-agro-orange/10"
-                          }`}
-                        >
-                          {esOptimo ? "Óptimo" : "Atención"}
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono border border-slate-700 text-gray-400 bg-slate-900">
+                          {String(item.origen_dato || "Firebase Realtime")}
                         </span>
                       </td>
                     </tr>

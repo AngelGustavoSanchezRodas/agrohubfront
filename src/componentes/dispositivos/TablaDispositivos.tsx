@@ -1,12 +1,19 @@
-﻿import { Wifi, WifiOff, Thermometer, Droplets, Leaf, Clock } from "lucide-react";
+import { Wifi, WifiOff, Thermometer, Droplets, Leaf, Clock, Sun, Check } from "lucide-react";
 import { DispositivoConsolidado } from "@/types";
 
 interface TablaDispositivosProps {
   dispositivos: DispositivoConsolidado[];
   cargando: boolean;
+  dispositivoActivo?: string;
+  onSeleccionarDispositivo?: (id: string) => void;
 }
 
-export function TablaDispositivos({ dispositivos, cargando }: TablaDispositivosProps) {
+export function TablaDispositivos({
+  dispositivos,
+  cargando,
+  dispositivoActivo,
+  onSeleccionarDispositivo,
+}: TablaDispositivosProps) {
   return (
     <div className="bg-agro-dark/80 backdrop-blur-sm border border-agro-border rounded-2xl overflow-hidden shadow-sm">
       <div className="overflow-x-auto -mx-0">
@@ -14,7 +21,7 @@ export function TablaDispositivos({ dispositivos, cargando }: TablaDispositivosP
           <thead className="bg-slate-950/80 border-b border-agro-border text-gray-400 uppercase tracking-wider text-[11px] font-semibold">
             <tr>
               <th className="px-4 sm:px-6 py-3.5">Estación de Monitoreo</th>
-              <th className="px-4 sm:px-6 py-3.5">Sector / Ubicación</th>
+              <th className="px-4 sm:px-6 py-3.5">Sector / Cultivo</th>
               <th className="px-4 sm:px-6 py-3.5">Estado</th>
               <th className="px-4 sm:px-6 py-3.5">Última Telemetría</th>
               <th className="px-4 sm:px-6 py-3.5 text-right">Último Reporte</th>
@@ -30,60 +37,89 @@ export function TablaDispositivos({ dispositivos, cargando }: TablaDispositivosP
                 </td>
               </tr>
             ) : (
-              dispositivos.map((estacion) => (
-                <tr key={estacion.id} className="hover:bg-slate-800/30 transition-colors">
-                  <td className="px-4 sm:px-6 py-3.5 font-medium whitespace-nowrap">
-                    <div className="font-semibold text-white text-xs sm:text-sm">
-                      {estacion.nombre || estacion.id}
-                    </div>
-                  </td>
-                  <td className="px-4 sm:px-6 py-3.5 text-gray-400 whitespace-nowrap">
-                    {estacion.ubicacion}
-                  </td>
-                  <td className="px-4 sm:px-6 py-3.5 whitespace-nowrap">
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
-                        estacion.estado === "ONLINE"
-                          ? "bg-agro-green/10 text-agro-green border border-agro-green/20"
-                          : "bg-red-500/10 text-red-500 border border-red-500/20"
-                      }`}
-                    >
-                      {estacion.estado === "ONLINE" ? (
-                        <Wifi className="w-3 h-3 shrink-0" />
-                      ) : (
-                        <WifiOff className="w-3 h-3 shrink-0" />
-                      )}
-                      {estacion.estado === "ONLINE" ? "EN LÍNEA" : "DESCONECTADA"}
-                    </span>
-                  </td>
-                  <td className="px-4 sm:px-6 py-3.5 whitespace-nowrap">
-                    {estacion.temperatura !== undefined ? (
-                      <div className="flex items-center gap-2.5 sm:gap-3 text-xs">
-                        <span className="flex items-center gap-1 text-agro-orange font-medium">
-                          <Thermometer className="w-3.5 h-3.5 shrink-0" />
-                          {estacion.temperatura}°C
-                        </span>
-                        <span className="flex items-center gap-1 text-blue-400 font-medium">
-                          <Droplets className="w-3.5 h-3.5 shrink-0" />
-                          {estacion.humedadAmbiente}%
-                        </span>
-                        <span className="flex items-center gap-1 text-agro-green font-medium">
-                          <Leaf className="w-3.5 h-3.5 shrink-0" />
-                          {estacion.humedadSuelo}%
-                        </span>
+              dispositivos.map((estacion) => {
+                const esActiva = dispositivoActivo === estacion.id;
+
+                return (
+                  <tr
+                    key={estacion.id}
+                    onClick={() => onSeleccionarDispositivo?.(estacion.id)}
+                    className={`hover:bg-slate-800/30 transition-colors ${
+                      onSeleccionarDispositivo ? "cursor-pointer" : ""
+                    } ${esActiva ? "bg-slate-900/60" : ""}`}
+                  >
+                    <td className="px-4 sm:px-6 py-3.5 font-medium whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <div className="font-semibold text-white text-xs sm:text-sm">
+                          {estacion.nombre || estacion.id}
+                        </div>
+                        {esActiva && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                            <Check className="w-3 h-3" />
+                            Activa
+                          </span>
+                        )}
                       </div>
-                    ) : (
-                      <span className="text-gray-500 italic text-[11px]">Sin lecturas recientes</span>
-                    )}
-                  </td>
-                  <td className="px-4 sm:px-6 py-3.5 text-right whitespace-nowrap">
-                    <div className="text-gray-400 inline-flex items-center justify-end gap-1 font-mono text-[11px]">
-                      <Clock className="w-3 h-3 shrink-0" />
-                      <span>{estacion.ultimaConexion}</span>
-                    </div>
-                  </td>
-                </tr>
-              ))
+                    </td>
+                    <td className="px-4 sm:px-6 py-3.5 text-gray-400 whitespace-nowrap">
+                      <div>{estacion.ubicacion}</div>
+                      {estacion.cultivo && (
+                        <div className="text-[11px] text-agro-green font-medium">
+                          Cultivo: {estacion.cultivo}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 sm:px-6 py-3.5 whitespace-nowrap">
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
+                          estacion.estado === "ONLINE"
+                            ? "bg-agro-green/10 text-agro-green border border-agro-green/20"
+                            : "bg-red-500/10 text-red-500 border border-red-500/20"
+                        }`}
+                      >
+                        {estacion.estado === "ONLINE" ? (
+                          <Wifi className="w-3 h-3 shrink-0" />
+                        ) : (
+                          <WifiOff className="w-3 h-3 shrink-0" />
+                        )}
+                        {estacion.estado === "ONLINE" ? "EN LÍNEA" : "DESCONECTADA"}
+                      </span>
+                    </td>
+                    <td className="px-4 sm:px-6 py-3.5 whitespace-nowrap">
+                      {estacion.temperatura !== undefined ? (
+                        <div className="flex items-center gap-2.5 sm:gap-3 text-xs">
+                          <span className="flex items-center gap-1 text-agro-orange font-medium">
+                            <Thermometer className="w-3.5 h-3.5 shrink-0" />
+                            {estacion.temperatura}°C
+                          </span>
+                          <span className="flex items-center gap-1 text-blue-400 font-medium">
+                            <Droplets className="w-3.5 h-3.5 shrink-0" />
+                            {estacion.humedadAmbiente}%
+                          </span>
+                          <span className="flex items-center gap-1 text-agro-green font-medium">
+                            <Leaf className="w-3.5 h-3.5 shrink-0" />
+                            {estacion.humedadSuelo}%
+                          </span>
+                          {estacion.intensidadLuz !== undefined && (
+                            <span className="flex items-center gap-1 text-yellow-400 font-medium">
+                              <Sun className="w-3.5 h-3.5 shrink-0" />
+                              {estacion.intensidadLuz} Lux
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-gray-500 italic text-[11px]">Sin lecturas recientes</span>
+                      )}
+                    </td>
+                    <td className="px-4 sm:px-6 py-3.5 text-right whitespace-nowrap">
+                      <div className="text-gray-400 inline-flex items-center justify-end gap-1 font-mono text-[11px]">
+                        <Clock className="w-3 h-3 shrink-0" />
+                        <span>{estacion.ultimaConexion}</span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

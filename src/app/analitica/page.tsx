@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { LineChart, AlertCircle } from "lucide-react";
-import { obtenerDatosGrafica } from "@/services/api";
-import { DISPOSITIVO_ACTIVO } from "@/lib/dispositivos";
+import { LineChart, AlertCircle, Cpu } from "lucide-react";
+import { obtenerDatosGrafica, obtenerDispositivos } from "@/services/api";
+import { obtenerDispositivoActivo, guardarDispositivoActivo } from "@/lib/dispositivos";
 import { etiquetaLectura } from "@/lib/tiempo";
-import { DatosTelemetriaHistorica, MetricasResumen } from "@/types";
+import { DatosTelemetriaHistorica, MetricasResumen, DispositivoBackend } from "@/types";
 import {
   MetricasCards,
   FiltrosToolbar,
@@ -15,16 +15,30 @@ import {
 } from "@/componentes/analitica";
 
 export default function Analitica() {
+  const [dispositivos, setDispositivos] = useState<DispositivoBackend[]>([]);
+  const [dispositivoId, setDispositivoId] = useState<string>(obtenerDispositivoActivo());
   const [datos, setDatos] = useState<DatosTelemetriaHistorica[]>([]);
   const [cargando, setCargando] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [limite, setLimite] = useState<number>(24);
-  const [dispositivoId] = useState<string>(DISPOSITIVO_ACTIVO);
 
-  const consultarHistorial = (cantidad: number) => {
+  useEffect(() => {
+    obtenerDispositivos().then((lista) => {
+      if (Array.isArray(lista) && lista.length > 0) {
+        setDispositivos(lista);
+        if (!lista.some((d) => d.id_dispositivo === dispositivoId)) {
+          const primero = lista[0].id_dispositivo;
+          setDispositivoId(primero);
+          guardarDispositivoActivo(primero);
+        }
+      }
+    });
+  }, [dispositivoId]);
+
+  const consultarHistorial = (cantidad: number, idEstacion = dispositivoId) => {
     setCargando(true);
     setError(null);
-    obtenerDatosGrafica(cantidad, dispositivoId)
+    obtenerDatosGrafica(cantidad, idEstacion)
       .then((respuesta) => {
         setDatos(Array.isArray(respuesta) && respuesta.length > 0 ? [...respuesta].reverse() : []);
         setCargando(false);
@@ -127,13 +141,38 @@ export default function Analitica() {
           </p>
         </div>
 
-        {/* Barra de herramientas para rangos */}
-        <FiltrosToolbar
-          limite={limite}
-          setLimite={setLimite}
-          consultarHistorial={consultarHistorial}
-          cargando={cargando}
-        />
+        <div className="flex flex-wrap items-center gap-3">
+          {dispositivos.length > 1 && (
+            <div className="flex items-center gap-1.5 bg-slate-950 border border-agro-border rounded-xl px-2.5 py-1.5">
+              <Cpu className="w-3.5 h-3.5 text-agro-green shrink-0" />
+              <select
+                aria-label="Seleccionar estación analítica"
+                value={dispositivoId}
+                onChange={(e) => {
+                  const nuevo = e.target.value;
+                  setDispositivoId(nuevo);
+                  guardarDispositivoActivo(nuevo);
+                  consultarHistorial(limite, nuevo);
+                }}
+                className="bg-transparent text-xs text-white focus:outline-none cursor-pointer"
+              >
+                {dispositivos.map((d) => (
+                  <option key={d.id_dispositivo} value={d.id_dispositivo} className="bg-slate-900 text-white">
+                    {d.nombre || d.id_dispositivo}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Barra de herramientas para rangos */}
+          <FiltrosToolbar
+            limite={limite}
+            setLimite={setLimite}
+            consultarHistorial={(cant) => consultarHistorial(cant, dispositivoId)}
+            cargando={cargando}
+          />
+        </div>
       </div>
 
       {/* Alerta de error si falla la consulta */}

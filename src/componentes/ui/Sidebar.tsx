@@ -1,5 +1,5 @@
-﻿"use client";
-
+"use client";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -10,7 +10,7 @@ import {
   Brain,
   Sprout,
 } from "lucide-react";
-import { DISPOSITIVO_ACTIVO } from "@/lib/dispositivos";
+import { obtenerDispositivoActivo } from "@/lib/dispositivos";
 
 interface ElementoNavegacion {
   nombre: string;
@@ -54,6 +54,24 @@ const elementosNavegacion: ElementoNavegacion[] = [
 
 export function Sidebar() {
   const rutaActual = usePathname();
+  const [estacionActiva, setEstacionActiva] = useState<string>(obtenerDispositivoActivo());
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const custom = e as CustomEvent<string>;
+      if (custom.detail) {
+        setEstacionActiva(custom.detail);
+      } else {
+        setEstacionActiva(obtenerDispositivoActivo());
+      }
+    };
+    window.addEventListener("agrohub_dispositivo_cambiado", handler);
+    window.addEventListener("storage", handler);
+    return () => {
+      window.removeEventListener("agrohub_dispositivo_cambiado", handler);
+      window.removeEventListener("storage", handler);
+    };
+  }, []);
 
   return (
     <aside className="w-64 border-r border-agro-border bg-agro-dark h-screen flex flex-col justify-between hidden md:flex shrink-0">
@@ -104,18 +122,18 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Identificador del Invernadero y Sector */}
+      {/* Identificador de Estación Activa */}
       <div className="p-4 border-t border-agro-border">
         <div className="flex items-center px-3 py-2 bg-slate-950/60 rounded-xl border border-agro-border/60">
           <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-agro-green mr-3 border border-emerald-500/20 shrink-0">
             <Sprout className="w-4 h-4 text-agro-green" />
           </div>
           <div className="flex flex-col truncate">
-            <span className="text-xs font-semibold text-white truncate">
-              Invernadero Principal
+            <span className="text-xs font-semibold text-white truncate font-mono">
+              {estacionActiva}
             </span>
             <span className="text-[11px] text-gray-400 truncate">
-              Sector de cultivo activo
+              Estación en monitoreo
             </span>
           </div>
         </div>

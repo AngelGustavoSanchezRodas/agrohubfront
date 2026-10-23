@@ -1,8 +1,11 @@
-﻿interface DetalleDiagnosticoProps {
+import React from "react";
+
+interface DetalleDiagnosticoProps {
   riesgoDetectado: string;
   recomendacionTecnica: string;
   evaluacionHumedad?: string;
   evaluacionTemperatura?: string;
+  evaluacionLuz?: string;
   cultivo?: string;
 }
 
@@ -11,6 +14,7 @@ export function DetalleDiagnostico({
   recomendacionTecnica,
   evaluacionHumedad,
   evaluacionTemperatura,
+  evaluacionLuz,
   cultivo,
 }: DetalleDiagnosticoProps) {
   return (
@@ -38,8 +42,8 @@ export function DetalleDiagnostico({
         </div>
       </div>
 
-      {(evaluacionHumedad || evaluacionTemperatura) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {(evaluacionHumedad || evaluacionTemperatura || evaluacionLuz) && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {evaluacionHumedad && (
             <div className="bg-agro-dark border border-agro-border rounded-xl p-6">
               <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">
@@ -54,6 +58,14 @@ export function DetalleDiagnostico({
                 Condición Térmica
               </h3>
               <p className="text-gray-300 leading-relaxed text-sm">{evaluacionTemperatura}</p>
+            </div>
+          )}
+          {evaluacionLuz && (
+            <div className="bg-agro-dark border border-agro-border rounded-xl p-6">
+              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-3">
+                Condición Lumínica (Lux)
+              </h3>
+              <p className="text-gray-300 leading-relaxed text-sm">{evaluacionLuz}</p>
             </div>
           )}
         </div>
